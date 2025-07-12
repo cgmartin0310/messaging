@@ -112,6 +112,54 @@ router.post('/', authenticateToken, validateGroup, async (req, res) => {
   }
 });
 
+// Debug route to see what's in the database
+router.get('/debug', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Check what's in the groups table
+    const allGroups = await Group.findAll({
+      include: [
+        {
+          model: User,
+          as: 'members',
+          attributes: ['id', 'username', 'firstName', 'lastName']
+        }
+      ]
+    });
+    
+    // Check what's in the conversations table
+    const { Conversation } = require('../models/Conversation');
+    const allConversations = await Conversation.findAll({
+      include: [
+        {
+          model: require('../models/Conversation').ConversationParticipant,
+          as: 'participants'
+        }
+      ]
+    });
+    
+    res.json({
+      groups: allGroups.map(g => ({
+        id: g.id,
+        name: g.name,
+        description: g.description,
+        memberCount: g.members.length,
+        members: g.members.map(m => ({ id: m.id, username: m.username }))
+      })),
+      conversations: allConversations.map(c => ({
+        id: c.id,
+        name: c.name,
+        conversationType: c.conversationType,
+        participantCount: c.participants.length
+      }))
+    });
+  } catch (error) {
+    console.error('Debug error:', error);
+    res.status(500).json({ error: 'Debug failed' });
+  }
+});
+
 // Get user's groups
 router.get('/', authenticateToken, async (req, res) => {
   try {
@@ -124,6 +172,7 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 
     const userId = req.user.id;
+    console.log('Fetching groups for user:', userId);
 
     const groups = await Group.findAll({
       include: [
@@ -139,6 +188,9 @@ router.get('/', authenticateToken, async (req, res) => {
       }
     });
 
+    console.log('Found groups:', groups.length);
+    console.log('Group names:', groups.map(g => g.name));
+
     const formattedGroups = groups.map(group => ({
       id: group.id,
       name: group.name,
@@ -149,6 +201,8 @@ router.get('/', authenticateToken, async (req, res) => {
       members: group.members,
       createdAt: group.createdAt
     }));
+
+    console.log('Formatted groups:', formattedGroups.map(g => ({ id: g.id, name: g.name, memberCount: g.memberCount })));
 
     res.json({
       groups: formattedGroups
