@@ -11,7 +11,6 @@ import {
   Search,
   Settings,
   Notifications,
-  Group,
   Chat,
   Message,
   Dashboard as DashboardIcon
@@ -46,14 +45,19 @@ import Conversations from './Conversations';
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [groups, setGroups] = useState([]);
   const [unreadCounts, setUnreadCounts] = useState({});
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState(0);
 
   useEffect(() => {
     fetchDashboardData();
+    
+    // Check for tab parameter in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam === 'contacts') {
+      setActiveTab(1);
+    }
   }, []);
 
   const fetchDashboardData = async () => {
@@ -64,7 +68,6 @@ const Dashboard = () => {
         axios.get('/api/messages/unread/count')
       ]);
 
-      setGroups(profileRes.data.groups || []);
       setUnreadCounts(unreadRes.data.unreadCounts || {});
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -83,10 +86,6 @@ const Dashboard = () => {
     setActiveTab(newValue);
   };
 
-  const filteredGroups = groups.filter(group =>
-    group.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   if (loading) {
     return (
       <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -101,103 +100,6 @@ const Dashboard = () => {
         return <Conversations />;
       case 1: // Contacts
         return <Contacts />;
-      case 2: // Groups
-        return (
-          <Box>
-            {/* Search Bar */}
-            <Paper sx={{ p: 2, mb: 3 }}>
-              <TextField
-                fullWidth
-                variant="outlined"
-                placeholder="Search groups..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search />
-                    </InputAdornment>
-                  )
-                }}
-              />
-            </Paper>
-
-            {/* Groups List */}
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center' }}>
-                    <People sx={{ mr: 1 }} />
-                    Groups
-                  </Typography>
-                  <Button
-                    component={Link}
-                    to="/groups"
-                    variant="contained"
-                    startIcon={<Add />}
-                    size="small"
-                  >
-                    Manage Groups
-                  </Button>
-                </Box>
-
-                {filteredGroups.length === 0 ? (
-                  <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
-                    <Group sx={{ fontSize: 48, mb: 2, opacity: 0.3 }} />
-                    <Typography variant="h6" gutterBottom>
-                      No groups found
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      Create groups to organize contacts
-                    </Typography>
-                    <Button
-                      component={Link}
-                      to="/groups"
-                      variant="text"
-                      color="primary"
-                      startIcon={<Add />}
-                    >
-                      Create your first group
-                    </Button>
-                  </Box>
-                ) : (
-                  <List sx={{ p: 0 }}>
-                    {filteredGroups.map((group) => (
-                      <ListItem
-                        key={group.id}
-                        sx={{
-                          border: 1,
-                          borderColor: 'divider',
-                          borderRadius: 1,
-                          mb: 1
-                        }}
-                      >
-                        <ListItemAvatar>
-                          <Avatar sx={{ bgcolor: 'primary.main' }}>
-                            {group.name.charAt(0).toUpperCase()}
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={group.name}
-                          secondary={`${group.memberCount} members`}
-                        />
-                        <Button
-                          component={Link}
-                          to="/groups"
-                          variant="outlined"
-                          size="small"
-                          startIcon={<People />}
-                        >
-                          View Members
-                        </Button>
-                      </ListItem>
-                    ))}
-                  </List>
-                )}
-              </CardContent>
-            </Card>
-          </Box>
-        );
       default:
         return null;
     }
@@ -254,11 +156,6 @@ const Dashboard = () => {
               label="Contacts" 
               iconPosition="start"
             />
-            <Tab 
-              icon={<People />} 
-              label="Groups" 
-              iconPosition="start"
-            />
           </Tabs>
         </Paper>
 
@@ -275,14 +172,13 @@ const Dashboard = () => {
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6} md={3}>
                 <Button
-                  component={Link}
-                  to="/groups"
                   variant="outlined"
                   fullWidth
                   startIcon={<Add />}
+                  onClick={() => setActiveTab(1)} // Switch to Contacts tab
                   sx={{ py: 2 }}
                 >
-                  Create Group
+                  Add Contact
                 </Button>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
@@ -299,14 +195,13 @@ const Dashboard = () => {
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
                 <Button
-                  component={Link}
-                  to="/groups"
                   variant="outlined"
                   fullWidth
                   startIcon={<People />}
+                  onClick={() => setActiveTab(1)} // Switch to Contacts tab
                   sx={{ py: 2 }}
                 >
-                  Browse Groups
+                  Browse Contacts
                 </Button>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>

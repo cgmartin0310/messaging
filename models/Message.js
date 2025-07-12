@@ -1,7 +1,6 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const User = require('./User');
-const { Group } = require('./Group');
 const { Conversation } = require('./Conversation');
 
 const Message = sequelize.define('Message', {
@@ -101,10 +100,10 @@ const MessageRead = sequelize.define('MessageRead', {
 // Associations are set up in models/index.js
 
 // Static methods
-Message.getGroupMessages = async function(groupId, limit = 50, offset = 0) {
+Message.getConversationMessages = async function(conversationId, limit = 50, offset = 0) {
   return await this.findAll({
     where: {
-      groupId: groupId,
+      conversationId: conversationId,
       isDeleted: false
     },
     include: [

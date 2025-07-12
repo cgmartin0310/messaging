@@ -4,11 +4,11 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { 
   Chat, 
-  Group, 
   Person, 
   Message,
   Search,
-  Add
+  Add,
+  Phone
 } from '@mui/icons-material';
 import { 
   Box, 
@@ -25,7 +25,7 @@ import {
   Card,
   CardContent,
   InputAdornment,
-  CircularProgress
+  Chip
 } from '@mui/material';
 import LoadingSpinner from './common/LoadingSpinner';
 
@@ -64,24 +64,37 @@ const Conversations = () => {
       return otherParticipant ? otherParticipant.displayName : 'Direct Chat';
     }
     
-    // For group conversations, show group name
-    return conversation.name || 'Group Chat';
+    return conversation.name || 'Conversation';
   };
 
   const getConversationSubtitle = (conversation) => {
     if (conversation.conversationType === 'direct') {
-      return 'Direct conversation';
+      const otherParticipant = conversation.participants.find(p => 
+        p.participantType === 'user' && p.identity !== conversation.currentUserId
+      );
+      return otherParticipant ? 'App User' : 'Direct conversation';
     }
     
-    const participantCount = conversation.participants.length;
-    return `${participantCount} participant${participantCount !== 1 ? 's' : ''}`;
+    // Check if it's an SMS conversation
+    const smsParticipant = conversation.participants.find(p => p.participantType === 'sms');
+    if (smsParticipant) {
+      return `SMS • ${smsParticipant.phoneNumber}`;
+    }
+    
+    return 'Conversation';
+  };
+
+  const getConversationType = (conversation) => {
+    const smsParticipant = conversation.participants.find(p => p.participantType === 'sms');
+    if (smsParticipant) {
+      return 'sms';
+    }
+    return 'app';
   };
 
   const getConversationIcon = (conversation) => {
-    if (conversation.conversationType === 'direct') {
-      return <Person />;
-    }
-    return <Group />;
+    const type = getConversationType(conversation);
+    return type === 'sms' ? <Phone /> : <Person />;
   };
 
   const getConversationAvatar = (conversation) => {
@@ -91,7 +104,14 @@ const Conversations = () => {
       );
       return otherParticipant ? otherParticipant.displayName.charAt(0).toUpperCase() : '?';
     }
-    return conversation.name ? conversation.name.charAt(0).toUpperCase() : 'G';
+    
+    // For SMS conversations
+    const smsParticipant = conversation.participants.find(p => p.participantType === 'sms');
+    if (smsParticipant) {
+      return smsParticipant.displayName ? smsParticipant.displayName.charAt(0).toUpperCase() : 'S';
+    }
+    
+    return conversation.name ? conversation.name.charAt(0).toUpperCase() : 'C';
   };
 
   const filteredConversations = conversations.filter(conversation => {
@@ -136,11 +156,10 @@ const Conversations = () => {
               Conversations
             </Typography>
             <Button
-              component={Link}
-              to="/groups"
               variant="contained"
               startIcon={<Add />}
               size="small"
+              onClick={() => window.location.href = '/dashboard?tab=contacts'}
             >
               New Conversation
             </Button>
@@ -153,14 +172,13 @@ const Conversations = () => {
                 No conversations found
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Start a conversation with a contact or join a group
+                Start a conversation with a contact
               </Typography>
               <Button
-                component={Link}
-                to="/groups"
                 variant="text"
                 color="primary"
                 startIcon={<Add />}
+                onClick={() => window.location.href = '/dashboard?tab=contacts'}
               >
                 Start your first conversation
               </Button>
@@ -183,12 +201,24 @@ const Conversations = () => {
                   }}
                 >
                   <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: 'primary.main' }}>
+                    <Avatar sx={{ 
+                      bgcolor: getConversationType(conversation) === 'sms' ? 'secondary.main' : 'primary.main' 
+                    }}>
                       {getConversationAvatar(conversation)}
                     </Avatar>
                   </ListItemAvatar>
                   <ListItemText
-                    primary={getConversationName(conversation)}
+                    primary={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {getConversationName(conversation)}
+                        <Chip 
+                          label={getConversationType(conversation) === 'sms' ? 'SMS' : 'App'} 
+                          size="small" 
+                          color={getConversationType(conversation) === 'sms' ? 'secondary' : 'primary'}
+                          variant="outlined"
+                        />
+                      </Box>
+                    }
                     secondary={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {getConversationIcon(conversation)}

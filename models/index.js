@@ -2,33 +2,20 @@ const sequelize = require('../config/database');
 
 // Import models
 const User = require('./User');
-const { Group, GroupMember } = require('./Group');
+const Contact = require('./Contact');
 const { Message, MessageRead } = require('./Message');
 const { Conversation, ConversationParticipant } = require('./Conversation');
 
-// Set up associations in the correct order
-// First, set up the many-to-many relationship between Users and Groups
-Group.belongsToMany(User, { 
-  through: GroupMember, 
-  as: 'members',
-  foreignKey: 'GroupId',
-  otherKey: 'UserId'
-});
-User.belongsToMany(Group, { 
-  through: GroupMember, 
-  as: 'groups',
-  foreignKey: 'UserId',
-  otherKey: 'GroupId'
+// Set up Contact associations
+Contact.belongsTo(User, { 
+  as: 'user', 
+  foreignKey: 'userId' 
 });
 
 // Set up Message associations
 Message.belongsTo(User, { 
   as: 'sender', 
   foreignKey: 'senderId' 
-});
-Message.belongsTo(Group, { 
-  as: 'group', 
-  foreignKey: 'groupId' 
 });
 Message.belongsTo(Conversation, { 
   as: 'conversation', 
@@ -70,8 +57,7 @@ Conversation.hasMany(Message, {
 module.exports = {
   sequelize,
   User,
-  Group,
-  GroupMember,
+  Contact,
   Message,
   MessageRead,
   Conversation,
