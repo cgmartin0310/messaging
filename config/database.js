@@ -13,91 +13,103 @@ const isValidPostgresUrl = (url) => {
   }
 };
 
-// Only modify URL if it's a valid PostgreSQL URL
-if (databaseUrl && isValidPostgresUrl(databaseUrl)) {
-  // For Render, use a more permissive SSL configuration
-  if (!databaseUrl.includes('ssl=') && !databaseUrl.includes('sslmode=')) {
-    databaseUrl += (databaseUrl.includes('?') ? '&' : '?') + 'sslmode=require&ssl=true';
-  }
-}
-
-// Create Sequelize configuration
-const sequelizeConfig = {
-  dialect: 'postgres',
-  logging: process.env.NODE_ENV === 'development' ? console.log : false,
-  pool: {
-    max: 5,
-    min: 0,
-    acquire: 30000,
-    idle: 10000
-  },
-  retry: {
-    max: 3,
-    timeout: 10000
-  }
-};
-
-// Add SSL configuration for production
-if (process.env.NODE_ENV === 'production') {
-  // Primary SSL configuration for Render
-  sequelizeConfig.dialectOptions = {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false,
-      // Additional SSL options for Render
-      checkServerIdentity: () => undefined,
-      // Add more SSL options to handle self-signed certificates
-      ca: process.env.SSL_CA,
-      cert: process.env.SSL_CERT,
-      key: process.env.SSL_KEY
+// Create base Sequelize configuration
+const createSequelizeConfig = (useSSL = true) => {
+  const config = {
+    dialect: 'postgres',
+    logging: process.env.NODE_ENV === 'development' ? console.log : false,
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    },
+    retry: {
+      max: 3,
+      timeout: 10000
     }
   };
-  
-  // Alternative SSL configuration for Render if no custom certificates
-  if (!process.env.SSL_CA && !process.env.SSL_CERT && !process.env.SSL_KEY) {
-    sequelizeConfig.dialectOptions.ssl = {
-      require: true,
-      rejectUnauthorized: false,
-      checkServerIdentity: () => undefined
-    };
-  }
-}
 
-// Create Sequelize instance
-const sequelize = new Sequelize(databaseUrl, sequelizeConfig);
-
-// Test connection function
-const testConnection = async () => {
-  try {
-    await sequelize.authenticate();
-    console.log('PostgreSQL connected successfully');
-    return true;
-  } catch (error) {
-    console.error('Database connection error:', error.message);
-    
-    // If SSL fails, try without SSL
-    if (error.message.includes('self-signed certificate') || error.message.includes('SSL')) {
-      console.log('SSL connection failed, attempting without SSL...');
-      try {
-        // Create a new connection without SSL
-        const noSSLConfig = {
-          ...sequelizeConfig,
-          dialectOptions: {
-            ssl: false
-          }
-        };
-        const noSSLSequelize = new Sequelize(databaseUrl, noSSLConfig);
-        await noSSLSequelize.authenticate();
-        console.log('PostgreSQL connected without SSL');
-        return true;
-      } catch (noSSLError) {
-        console.error('Non-SSL connection also failed:', noSSLError.message);
-        return false;
-      }
+  if (process.env.NODE_ENV === 'production') {
+    if (useSSL) {
+      // Try with SSL but very permissive settings
+      config.dialectOptions = {
+        ssl: {
+          require: true,
+          rejectUnauthorized: false,
+          checkServerIdentity: () => undefined
+        }
+      };
+    } else {
+      // No SSL at all
+      config.dialectOptions = {
+        ssl: false
+      };
     }
+  }
+
+  return config;
+};
+
+// Test connection function with multiple strategies
+const testConnection = async () => {
+  if (!databaseUrl || !isValidPostgresUrl(databaseUrl)) {
+    console.error('Invalid or missing DATABASE_URL');
     return false;
   }
+
+  console.log('Testing database connection with multiple strategies...');
+
+  // Strategy 1: Try with SSL but very permissive
+  try {
+    console.log('Strategy 1: Trying with SSL (permissive settings)...');
+    const sequelize1 = new Sequelize(databaseUrl, createSequelizeConfig(true));
+    await sequelize1.authenticate();
+    console.log('✅ PostgreSQL connected successfully with SSL');
+    await sequelize1.close();
+    return true;
+  } catch (error) {
+    console.log('Strategy 1 failed:', error.message);
+  }
+
+  // Strategy 2: Try without SSL completely
+  try {
+    console.log('Strategy 2: Trying without SSL...');
+    const sequelize2 = new Sequelize(databaseUrl, createSequelizeConfig(false));
+    await sequelize2.authenticate();
+    console.log('✅ PostgreSQL connected successfully without SSL');
+    await sequelize2.close();
+    return true;
+  } catch (error) {
+    console.log('Strategy 2 failed:', error.message);
+  }
+
+  // Strategy 3: Try with URL parameters removed
+  try {
+    console.log('Strategy 3: Trying with clean URL (no SSL params)...');
+    let cleanUrl = databaseUrl;
+    // Remove any SSL parameters from the URL
+    cleanUrl = cleanUrl.replace(/[?&]ssl[^&]*/g, '');
+    cleanUrl = cleanUrl.replace(/[?&]sslmode[^&]*/g, '');
+    cleanUrl = cleanUrl.replace(/\?&/, '?');
+    cleanUrl = cleanUrl.replace(/&&/, '&');
+    cleanUrl = cleanUrl.replace(/\?$/, '');
+    
+    const sequelize3 = new Sequelize(cleanUrl, createSequelizeConfig(false));
+    await sequelize3.authenticate();
+    console.log('✅ PostgreSQL connected successfully with clean URL');
+    await sequelize3.close();
+    return true;
+  } catch (error) {
+    console.log('Strategy 3 failed:', error.message);
+  }
+
+  console.error('❌ All connection strategies failed');
+  return false;
 };
+
+// Create the main Sequelize instance with the most likely working configuration
+const sequelize = new Sequelize(databaseUrl, createSequelizeConfig(true));
 
 module.exports = sequelize;
 module.exports.testConnection = testConnection; 
