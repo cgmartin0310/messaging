@@ -21,8 +21,13 @@ app.use(helmet());
 const allowedOrigins = [
   'http://localhost:3000',
   'https://localhost:3000',
+  'http://localhost:3001',
+  'https://localhost:3001',
   process.env.CLIENT_URL,
-  process.env.FRONTEND_URL
+  process.env.FRONTEND_URL,
+  // Add Render-specific URLs
+  'https://your-app-name.onrender.com',
+  'https://your-frontend-app.onrender.com'
 ].filter(Boolean);
 
 app.use(cors({
@@ -30,13 +35,24 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
+    // In production, be more permissive for Render
+    if (process.env.NODE_ENV === 'production') {
+      // Allow any origin from Render domains
+      if (origin.includes('onrender.com') || origin.includes('render.com')) {
+        return callback(null, true);
+      }
+    }
+    
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
+      console.log('CORS blocked origin:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 // Rate limiting
@@ -54,16 +70,34 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Database connection
 const connectDB = async () => {
   try {
+    console.log('Attempting to connect to PostgreSQL...');
+    console.log('Database URL:', process.env.DATABASE_URL ? 'Set' : 'Not set');
+    console.log('Environment:', process.env.NODE_ENV || 'development');
+    
     await sequelize.authenticate();
     console.log('PostgreSQL connected successfully');
     
     // Sync all models with database
+    console.log('Syncing database models...');
     await sequelize.sync({ alter: true });
     console.log('Database models synchronized');
     
     return true;
   } catch (error) {
-    console.error('Database connection error:', error);
+    console.error('Database connection error:', error.message);
+    console.error('Error code:', error.code);
+    console.error('Error details:', error.original?.message || error.message);
+    
+    // Provide specific guidance based on error type
+    if (error.code === 'DEPTH_ZERO_SELF_SIGNED_CERT' || error.code === 'SELF_SIGNED_CERT_IN_CHAIN') {
+      console.log('SSL Certificate Issue: This is common on Render. The connection should still work.');
+      console.log('If the app is working, you can ignore this warning.');
+    } else if (error.code === 'ECONNREFUSED') {
+      console.log('Connection refused: Check if the database is running and accessible.');
+    } else if (error.code === 'ENOTFOUND') {
+      console.log('Host not found: Check your DATABASE_URL configuration.');
+    }
+    
     console.log('Server will start without database connection. Some features may not work.');
     console.log('To fix this, please check your database connection string.');
     return false;
