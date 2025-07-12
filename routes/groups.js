@@ -320,6 +320,59 @@ router.delete('/:groupId/members', authenticateToken, async (req, res) => {
   }
 });
 
+// Get group members
+router.get('/:groupId/members', authenticateToken, async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const userId = req.user.id;
+
+    const group = await Group.findByPk(groupId, {
+      include: [
+        {
+          model: User,
+          as: 'members',
+          attributes: ['id', 'username', 'firstName', 'lastName', 'avatar']
+        }
+      ]
+    });
+
+    if (!group) {
+      return res.status(404).json({
+        error: 'Group not found',
+        message: 'The specified group does not exist'
+      });
+    }
+
+    // Check if user is a member
+    const isMember = group.members.some(member => member.id === userId);
+    if (!isMember) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'You must be a member of this group to view members'
+      });
+    }
+
+    const members = group.members.map(member => ({
+      id: member.id,
+      username: member.username,
+      firstName: member.firstName,
+      lastName: member.lastName,
+      avatar: member.avatar,
+      isOwner: group.adminId === member.id
+    }));
+
+    res.json({
+      members
+    });
+  } catch (error) {
+    console.error('Get group members error:', error);
+    res.status(500).json({
+      error: 'Group members retrieval failed',
+      message: 'An error occurred while retrieving group members'
+    });
+  }
+});
+
 // Search users to add to groups
 router.get('/search/users', authenticateToken, async (req, res) => {
   try {

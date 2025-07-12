@@ -137,7 +137,7 @@ const Dashboard = () => {
                     startIcon={<Add />}
                     size="small"
                   >
-                    Create Group
+                    Manage Groups
                   </Button>
                 </Box>
 
@@ -148,7 +148,7 @@ const Dashboard = () => {
                       No groups found
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      Create groups to organize conversations
+                      Create groups to organize contacts
                     </Typography>
                     <Button
                       component={Link}
@@ -165,16 +165,11 @@ const Dashboard = () => {
                     {filteredGroups.map((group) => (
                       <ListItem
                         key={group._id}
-                        component={Link}
-                        to={`/chat/${group._id}`}
                         sx={{
                           border: 1,
                           borderColor: 'divider',
                           borderRadius: 1,
-                          mb: 1,
-                          '&:hover': { bgcolor: 'action.hover' },
-                          textDecoration: 'none',
-                          color: 'inherit'
+                          mb: 1
                         }}
                       >
                         <ListItemAvatar>
@@ -186,9 +181,15 @@ const Dashboard = () => {
                           primary={group.name}
                           secondary={`${group.memberCount} members`}
                         />
-                        {unreadCounts[group._id] > 0 && (
-                          <Badge badgeContent={unreadCounts[group._id]} color="error" />
-                        )}
+                        <Button
+                          component={Link}
+                          to="/groups"
+                          variant="outlined"
+                          size="small"
+                          startIcon={<People />}
+                        >
+                          View Members
+                        </Button>
                       </ListItem>
                     ))}
                   </List>

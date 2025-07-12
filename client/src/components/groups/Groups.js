@@ -13,7 +13,9 @@ import {
   Person,
   Edit,
   Delete,
-  MoreVert
+  MoreVert,
+  Visibility,
+  Chat
 } from '@mui/icons-material';
 import { 
   AppBar, 
@@ -39,7 +41,8 @@ import {
   CircularProgress,
   InputAdornment,
   Menu,
-  MenuItem
+  MenuItem,
+  Chip
 } from '@mui/material';
 import LoadingSpinner from '../common/LoadingSpinner';
 
@@ -57,6 +60,8 @@ const Groups = () => {
   });
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
+  const [showMembersDialog, setShowMembersDialog] = useState(false);
+  const [selectedGroupMembers, setSelectedGroupMembers] = useState([]);
 
   useEffect(() => {
     fetchGroups();
@@ -72,6 +77,16 @@ const Groups = () => {
       toast.error('Failed to load groups');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchGroupMembers = async (groupId) => {
+    try {
+      const response = await axios.get(`/api/groups/${groupId}/members`);
+      setSelectedGroupMembers(response.data.members);
+    } catch (error) {
+      console.error('Error fetching group members:', error);
+      toast.error('Failed to load group members');
     }
   };
 
@@ -128,6 +143,12 @@ const Groups = () => {
       console.error('Error deleting group:', error);
       toast.error('Failed to delete group');
     }
+  };
+
+  const handleViewMembers = async (group) => {
+    setSelectedGroup(group);
+    await fetchGroupMembers(group._id);
+    setShowMembersDialog(true);
   };
 
   const handleMenuOpen = (event, group) => {
@@ -256,22 +277,23 @@ const Groups = () => {
                       </Typography>
                     </Box>
                     
-                    <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                       {group.isMember ? (
                         <>
                           <Button
-                            component={Link}
-                            to={`/chat/${group._id}`}
-                            variant="contained"
-                            fullWidth
+                            variant="outlined"
                             size="small"
+                            startIcon={<Visibility />}
+                            onClick={() => handleViewMembers(group)}
+                            sx={{ flex: 1 }}
                           >
-                            Open Chat
+                            View Members
                           </Button>
                           <Button
                             variant="outlined"
                             size="small"
                             onClick={() => handleLeaveGroup(group._id)}
+                            color="error"
                           >
                             Leave
                           </Button>
@@ -336,6 +358,55 @@ const Groups = () => {
             </Button>
           </DialogActions>
         </Box>
+      </Dialog>
+
+      {/* Group Members Dialog */}
+      <Dialog 
+        open={showMembersDialog} 
+        onClose={() => setShowMembersDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {selectedGroup?.name} - Members
+        </DialogTitle>
+        <DialogContent>
+          {selectedGroupMembers.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography variant="body1" color="text.secondary">
+                No members found
+              </Typography>
+            </Box>
+          ) : (
+            <List>
+              {selectedGroupMembers.map((member) => (
+                <ListItem key={member.id} sx={{ px: 0 }}>
+                  <ListItemAvatar>
+                    {member.avatar ? (
+                      <Avatar src={member.avatar} />
+                    ) : (
+                      <Avatar sx={{ bgcolor: 'grey.300' }}>
+                        {member.firstName.charAt(0).toUpperCase()}
+                      </Avatar>
+                    )}
+                  </ListItemAvatar>
+                  <ListItemText
+                    primary={`${member.firstName} ${member.lastName}`}
+                    secondary={`@${member.username}`}
+                  />
+                  {member.isOwner && (
+                    <Chip label="Owner" size="small" color="primary" />
+                  )}
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowMembersDialog(false)}>
+            Close
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Group Actions Menu */}
