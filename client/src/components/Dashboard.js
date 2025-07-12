@@ -164,7 +164,7 @@ const Dashboard = () => {
                   <List sx={{ p: 0 }}>
                     {filteredGroups.map((group) => (
                       <ListItem
-                        key={group._id}
+                        key={group.id}
                         sx={{
                           border: 1,
                           borderColor: 'divider',

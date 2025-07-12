@@ -54,7 +54,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
 
     // Format groups for frontend
     const groups = userGroups.map(group => ({
-      _id: group.id,
+      id: group.id,
       name: group.name,
       description: group.description,
       memberCount: group.members.length,
@@ -64,7 +64,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
 
     // Format contacts for frontend
     const formattedContacts = contacts.map(contact => ({
-      _id: contact.id,
+      id: contact.id,
       username: contact.username,
       firstName: contact.firstName,
       lastName: contact.lastName,

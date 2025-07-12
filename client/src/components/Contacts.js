@@ -155,9 +155,9 @@ const Contacts = () => {
             </Box>
           ) : (
             <List sx={{ p: 0 }}>
-              {filteredContacts.map((contact) => (
-                <ListItem
-                  key={contact._id}
+                              {filteredContacts.map((contact) => (
+                  <ListItem
+                    key={contact.id}
                   sx={{
                     border: 1,
                     borderColor: 'divider',
@@ -205,7 +205,7 @@ const Contacts = () => {
                       variant="outlined"
                       size="small"
                       startIcon={<Group />}
-                      onClick={() => handleAddToGroup(contact._id)}
+                      onClick={() => handleAddToGroup(contact.id)}
                       sx={{ 
                         minWidth: 'auto',
                         px: 2,
@@ -219,7 +219,7 @@ const Contacts = () => {
                       variant="contained"
                       size="small"
                       startIcon={<Message />}
-                      onClick={() => handleStartConversation(contact._id)}
+                      onClick={() => handleStartConversation(contact.id)}
                       disabled={startingConversation}
                       sx={{ 
                         minWidth: 'auto',

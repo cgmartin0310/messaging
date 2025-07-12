@@ -137,7 +137,7 @@ const Groups = () => {
   const handleDeleteGroup = async (groupId) => {
     try {
       await axios.delete(`/api/groups/${groupId}`);
-      setGroups(prev => prev.filter(group => group._id !== groupId));
+      setGroups(prev => prev.filter(group => group.id !== groupId));
       toast.success('Group deleted successfully!');
     } catch (error) {
       console.error('Error deleting group:', error);
@@ -147,7 +147,7 @@ const Groups = () => {
 
   const handleViewMembers = async (group) => {
     setSelectedGroup(group);
-    await fetchGroupMembers(group._id);
+    await fetchGroupMembers(group.id);
     setShowMembersDialog(true);
   };
 
@@ -245,7 +245,7 @@ const Groups = () => {
         ) : (
           <Grid container spacing={3}>
             {filteredGroups.map((group) => (
-              <Grid item xs={12} sm={6} md={4} key={group._id}>
+              <Grid item xs={12} sm={6} md={4} key={group.id}>
                 <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                   <CardContent sx={{ flexGrow: 1 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
@@ -292,7 +292,7 @@ const Groups = () => {
                           <Button
                             variant="outlined"
                             size="small"
-                            onClick={() => handleLeaveGroup(group._id)}
+                            onClick={() => handleLeaveGroup(group.id)}
                             color="error"
                           >
                             Leave
@@ -303,7 +303,7 @@ const Groups = () => {
                           variant="contained"
                           fullWidth
                           size="small"
-                          onClick={() => handleJoinGroup(group._id)}
+                          onClick={() => handleJoinGroup(group.id)}
                         >
                           Join Group
                         </Button>
@@ -427,7 +427,7 @@ const Groups = () => {
         {selectedGroup?.isOwner && (
           <MenuItem 
             onClick={() => {
-              handleDeleteGroup(selectedGroup._id);
+              handleDeleteGroup(selectedGroup.id);
               handleMenuClose();
             }}
             sx={{ color: 'error.main' }}
@@ -439,7 +439,7 @@ const Groups = () => {
         {selectedGroup?.isMember && !selectedGroup?.isOwner && (
           <MenuItem 
             onClick={() => {
-              handleLeaveGroup(selectedGroup._id);
+              handleLeaveGroup(selectedGroup.id);
               handleMenuClose();
             }}
             sx={{ color: 'error.main' }}
