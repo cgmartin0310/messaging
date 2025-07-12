@@ -15,9 +15,9 @@ const isValidPostgresUrl = (url) => {
 
 // Only modify URL if it's a valid PostgreSQL URL
 if (databaseUrl && isValidPostgresUrl(databaseUrl)) {
-  // Add SSL mode to URL if not present
+  // For Render, use a more permissive SSL configuration
   if (!databaseUrl.includes('ssl=') && !databaseUrl.includes('sslmode=')) {
-    databaseUrl += (databaseUrl.includes('?') ? '&' : '?') + 'sslmode=prefer';
+    databaseUrl += (databaseUrl.includes('?') ? '&' : '?') + 'sslmode=require&ssl=true';
   }
 }
 
@@ -33,12 +33,14 @@ const sequelizeConfig = {
   }
 };
 
-// Add SSL configuration only for production
+// Add SSL configuration for production
 if (process.env.NODE_ENV === 'production') {
   sequelizeConfig.dialectOptions = {
     ssl: {
-      require: false,
-      rejectUnauthorized: false
+      require: true,
+      rejectUnauthorized: false,
+      // Additional SSL options for Render
+      checkServerIdentity: () => undefined
     }
   };
 }
