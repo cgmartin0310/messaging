@@ -54,17 +54,12 @@ User.belongsToMany(Message, {
 });
 
 // Set up Conversation associations
-Conversation.belongsToMany(User, { 
-  through: ConversationParticipant, 
-  as: 'participants',
-  foreignKey: 'ConversationId',
-  otherKey: 'UserId'
+Conversation.hasMany(ConversationParticipant, { 
+  as: 'participants', 
+  foreignKey: 'ConversationId' 
 });
-User.belongsToMany(Conversation, { 
-  through: ConversationParticipant, 
-  as: 'conversations',
-  foreignKey: 'UserId',
-  otherKey: 'ConversationId'
+ConversationParticipant.belongsTo(Conversation, { 
+  foreignKey: 'ConversationId' 
 });
 
 Conversation.hasMany(Message, { 

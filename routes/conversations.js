@@ -20,14 +20,7 @@ router.get('/', authenticateToken, async (req, res) => {
         identity: p.identity,
         phoneNumber: p.phoneNumber,
         displayName: p.displayName
-      })),
-      lastMessage: conv.messages[0] ? {
-        id: conv.messages[0].id,
-        content: conv.messages[0].content,
-        messageType: conv.messages[0].messageType,
-        sender: conv.messages[0].sender,
-        createdAt: conv.messages[0].createdAt
-      } : null
+      }))
     }));
     
     res.json(formattedConversations);

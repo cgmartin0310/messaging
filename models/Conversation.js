@@ -256,20 +256,6 @@ Conversation.getUserConversations = async function(userId) {
         as: 'participants',
         where: { identity: userId },
         required: true
-      },
-      {
-        model: require('./Message'),
-        as: 'messages',
-        separate: true,
-        order: [['createdAt', 'DESC']],
-        limit: 1,
-        include: [
-          {
-            model: User,
-            as: 'sender',
-            attributes: ['id', 'username', 'firstName', 'lastName', 'avatar']
-          }
-        ]
       }
     ],
     where: { isActive: true },
