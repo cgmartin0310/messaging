@@ -5,6 +5,7 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const sequelize = require('./config/database');
+const { testConnection } = require('./config/database');
 const { User, Group, Message } = require('./models');
 const authRoutes = require('./routes/auth');
 const messageRoutes = require('./routes/messages');
@@ -76,37 +77,33 @@ const connectDB = async () => {
     console.log('Database URL:', process.env.DATABASE_URL ? 'Set' : 'Not set');
     console.log('Environment:', process.env.NODE_ENV || 'development');
     
-    await sequelize.authenticate();
-    console.log('PostgreSQL connected successfully');
+    // Use the test connection function
+    const connected = await testConnection();
     
-    // Sync all models with database
-    console.log('Syncing database models...');
-    await sequelize.sync({ alter: true });
-    console.log('Database models synchronized');
-    
-    return true;
+    if (connected) {
+      // Sync all models with database
+      console.log('Syncing database models...');
+      await sequelize.sync({ alter: true });
+      console.log('Database models synchronized');
+      return true;
+    } else {
+      console.log('Database connection failed after all attempts');
+      return false;
+    }
   } catch (error) {
     console.error('Database connection error:', error.message);
     console.error('Error code:', error.code);
     console.error('Error details:', error.original?.message || error.message);
     
     // Provide specific guidance based on error type
-    if (error.code === 'DEPTH_ZERO_SELF_SIGNED_CERT' || error.code === 'SELF_SIGNED_CERT_IN_CHAIN') {
-      console.log('SSL Certificate Issue: This is common on Render. The connection should still work.');
-      console.log('If the app is working, you can ignore this warning.');
-      // Try to continue anyway - sometimes the connection works despite SSL warnings
-      try {
-        await sequelize.sync({ alter: true });
-        console.log('Database models synchronized despite SSL warning');
-        return true;
-      } catch (syncError) {
-        console.log('Could not sync database models:', syncError.message);
-        return false;
-      }
-    } else if (error.code === 'ECONNREFUSED') {
+    if (error.code === 'ECONNREFUSED') {
       console.log('Connection refused: Check if the database is running and accessible.');
     } else if (error.code === 'ENOTFOUND') {
       console.log('Host not found: Check your DATABASE_URL configuration.');
+    } else if (error.code === '3D000') {
+      console.log('Database does not exist: Check if the database name in DATABASE_URL is correct.');
+    } else if (error.code === '28P01') {
+      console.log('Authentication failed: Check username and password in DATABASE_URL.');
     }
     
     console.log('Server will start without database connection. Some features may not work.');
