@@ -15,6 +15,8 @@ const getSSLConfig = () => {
     return {
       require: true,
       rejectUnauthorized: false,
+      // For Render, be more permissive with SSL
+      checkServerIdentity: () => undefined,
       // Add these if you have SSL certificates
       ...(process.env.SSL_CA && { ca: process.env.SSL_CA }),
       ...(process.env.SSL_CERT && { cert: process.env.SSL_CERT }),

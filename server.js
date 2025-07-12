@@ -37,10 +37,12 @@ app.use(cors({
     
     // In production, be more permissive for Render
     if (process.env.NODE_ENV === 'production') {
-      // Allow any origin from Render domains
-      if (origin.includes('onrender.com') || origin.includes('render.com')) {
+      // Allow any origin from Render domains or any origin in production
+      if (origin.includes('onrender.com') || origin.includes('render.com') || origin.includes('localhost')) {
         return callback(null, true);
       }
+      // For production, allow all origins temporarily for debugging
+      return callback(null, true);
     }
     
     if (allowedOrigins.indexOf(origin) !== -1) {
@@ -92,6 +94,15 @@ const connectDB = async () => {
     if (error.code === 'DEPTH_ZERO_SELF_SIGNED_CERT' || error.code === 'SELF_SIGNED_CERT_IN_CHAIN') {
       console.log('SSL Certificate Issue: This is common on Render. The connection should still work.');
       console.log('If the app is working, you can ignore this warning.');
+      // Try to continue anyway - sometimes the connection works despite SSL warnings
+      try {
+        await sequelize.sync({ alter: true });
+        console.log('Database models synchronized despite SSL warning');
+        return true;
+      } catch (syncError) {
+        console.log('Could not sync database models:', syncError.message);
+        return false;
+      }
     } else if (error.code === 'ECONNREFUSED') {
       console.log('Connection refused: Check if the database is running and accessible.');
     } else if (error.code === 'ENOTFOUND') {
