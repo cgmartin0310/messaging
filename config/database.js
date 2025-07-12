@@ -30,30 +30,16 @@ const sequelizeConfig = {
     min: 0,
     acquire: 30000,
     idle: 10000
-  },
-  dialectOptions: {
-    // Add connection timeout
-    connectTimeout: 60000,
-    options: {
-      requestTimeout: 60000,
-      cancelTimeout: 5000
-    }
-  },
-  // Add retry logic for connection issues
-  retry: {
-    max: 3,
-    backoffBase: 1000,
-    backoffExponent: 1.5
-  },
-  // Add connection timeout
-  timeout: 60000
+  }
 };
 
 // Add SSL configuration only for production
 if (process.env.NODE_ENV === 'production') {
-  sequelizeConfig.dialectOptions.ssl = {
-    require: false,
-    rejectUnauthorized: false
+  sequelizeConfig.dialectOptions = {
+    ssl: {
+      require: false,
+      rejectUnauthorized: false
+    }
   };
 }
 
