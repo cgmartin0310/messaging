@@ -13,6 +13,7 @@ router.get('/', authenticateToken, async (req, res) => {
       name: conv.name,
       conversationType: conv.conversationType,
       lastMessageAt: conv.lastMessageAt,
+      currentUserId: req.user.id,
       participants: conv.participants.map(p => ({
         id: p.id,
         participantType: p.participantType,
@@ -39,33 +40,61 @@ router.get('/', authenticateToken, async (req, res) => {
 // Create a new direct conversation
 router.post('/direct', authenticateToken, async (req, res) => {
   try {
-    const { recipientPhoneNumber, recipientName } = req.body;
+    const { recipientId, recipientPhoneNumber, recipientName } = req.body;
     
-    if (!recipientPhoneNumber) {
-      return res.status(400).json({ error: 'Recipient phone number is required' });
+    // Support both user ID and phone number
+    if (!recipientId && !recipientPhoneNumber) {
+      return res.status(400).json({ error: 'Recipient ID or phone number is required' });
     }
     
     // Check if conversation already exists
-    const existingConversation = await Conversation.findOne({
-      include: [
-        {
-          model: ConversationParticipant,
-          as: 'participants',
-          where: { 
-            identity: req.user.id,
-            participantType: 'user'
+    let existingConversation;
+    
+    if (recipientId) {
+      // Check for user-to-user conversation
+      existingConversation = await Conversation.findOne({
+        include: [
+          {
+            model: ConversationParticipant,
+            as: 'participants',
+            where: { 
+              identity: req.user.id,
+              participantType: 'user'
+            }
+          },
+          {
+            model: ConversationParticipant,
+            as: 'participants',
+            where: { 
+              identity: recipientId,
+              participantType: 'user'
+            }
           }
-        },
-        {
-          model: ConversationParticipant,
-          as: 'participants',
-          where: { 
-            phoneNumber: recipientPhoneNumber,
-            participantType: 'sms'
+        ]
+      });
+    } else {
+      // Check for user-to-SMS conversation
+      existingConversation = await Conversation.findOne({
+        include: [
+          {
+            model: ConversationParticipant,
+            as: 'participants',
+            where: { 
+              identity: req.user.id,
+              participantType: 'user'
+            }
+          },
+          {
+            model: ConversationParticipant,
+            as: 'participants',
+            where: { 
+              phoneNumber: recipientPhoneNumber,
+              participantType: 'sms'
+            }
           }
-        }
-      ]
-    });
+        ]
+      });
+    }
     
     if (existingConversation) {
       return res.json({
@@ -79,11 +108,28 @@ router.post('/direct', authenticateToken, async (req, res) => {
     }
     
     // Create new conversation
-    const conversation = await Conversation.createDirectConversation(
-      req.user.id,
-      recipientPhoneNumber,
-      recipientName
-    );
+    let conversation;
+    
+    if (recipientId) {
+      // Create user-to-user conversation
+      const recipient = await User.findByPk(recipientId);
+      if (!recipient) {
+        return res.status(404).json({ error: 'Recipient user not found' });
+      }
+      
+      conversation = await Conversation.createUserToUserConversation(
+        req.user.id,
+        recipientId,
+        recipient.firstName + ' ' + recipient.lastName
+      );
+    } else {
+      // Create user-to-SMS conversation
+      conversation = await Conversation.createDirectConversation(
+        req.user.id,
+        recipientPhoneNumber,
+        recipientName
+      );
+    }
     
     res.status(201).json({
       message: 'Direct conversation created successfully',

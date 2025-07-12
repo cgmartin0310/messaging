@@ -95,6 +95,85 @@ const ConversationParticipant = sequelize.define('ConversationParticipant', {
 });
 
 // Static methods
+Conversation.createUserToUserConversation = async function(userId, recipientId, recipientName = null) {
+  const twilioService = require('../services/twilioService');
+  const twilio = new twilioService();
+  
+  // Create unique conversation name
+  const conversationName = `direct_${userId}_${recipientId}`;
+  
+  // Create Twilio conversation
+  const twilioResult = await twilio.createOrGetConversation(
+    conversationName,
+    `Direct: ${recipientName || 'User'}`
+  );
+  
+  if (!twilioResult.success) {
+    throw new Error(`Failed to create Twilio conversation: ${twilioResult.error}`);
+  }
+  
+  // Create conversation in database
+  const conversation = await this.create({
+    twilioConversationId: twilioResult.conversationId,
+    conversationType: 'direct',
+    name: recipientName || 'Direct Chat'
+  });
+  
+  // Add current user as participant
+  const user = await User.findByPk(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+  
+  const userParticipant = await twilio.addParticipant(
+    twilioResult.conversationId,
+    user.id,
+    {
+      displayName: `${user.firstName} ${user.lastName}`,
+      phoneNumber: user.phoneNumber
+    }
+  );
+  
+  if (userParticipant.success) {
+    await ConversationParticipant.create({
+      ConversationId: conversation.id,
+      participantType: 'user',
+      twilioParticipantId: userParticipant.participantId,
+      identity: user.id,
+      phoneNumber: user.phoneNumber,
+      displayName: `${user.firstName} ${user.lastName}`
+    });
+  }
+  
+  // Add recipient user as participant
+  const recipient = await User.findByPk(recipientId);
+  if (!recipient) {
+    throw new Error('Recipient user not found');
+  }
+  
+  const recipientParticipant = await twilio.addParticipant(
+    twilioResult.conversationId,
+    recipient.id,
+    {
+      displayName: `${recipient.firstName} ${recipient.lastName}`,
+      phoneNumber: recipient.phoneNumber
+    }
+  );
+  
+  if (recipientParticipant.success) {
+    await ConversationParticipant.create({
+      ConversationId: conversation.id,
+      participantType: 'user',
+      twilioParticipantId: recipientParticipant.participantId,
+      identity: recipient.id,
+      phoneNumber: recipient.phoneNumber,
+      displayName: `${recipient.firstName} ${recipient.lastName}`
+    });
+  }
+  
+  return conversation;
+};
+
 Conversation.createDirectConversation = async function(userId, recipientPhoneNumber, recipientName = null) {
   const twilioService = require('../services/twilioService');
   const twilio = new twilioService();
