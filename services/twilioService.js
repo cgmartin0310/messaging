@@ -71,19 +71,34 @@ class TwilioService {
     }
 
     try {
-      const participant = await this.conversationsClient
-        .conversations(conversationId)
-        .participants
-        .create({
-          identity: identity,
-          attributes: JSON.stringify(attributes)
-        });
+      // Check if participant already exists
+      try {
+        const existingParticipant = await this.conversationsClient
+          .conversations(conversationId)
+          .participants(identity)
+          .fetch();
+        
+        return {
+          success: true,
+          participantId: existingParticipant.sid,
+          participant: existingParticipant
+        };
+      } catch (error) {
+        // Participant doesn't exist, create it
+        const participant = await this.conversationsClient
+          .conversations(conversationId)
+          .participants
+          .create({
+            identity: identity,
+            attributes: JSON.stringify(attributes)
+          });
 
-      return {
-        success: true,
-        participantId: participant.sid,
-        participant: participant
-      };
+        return {
+          success: true,
+          participantId: participant.sid,
+          participant: participant
+        };
+      }
     } catch (error) {
       console.error('Twilio add participant error:', error);
       return {

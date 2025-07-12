@@ -10,6 +10,7 @@ const authRoutes = require('./routes/auth');
 const messageRoutes = require('./routes/messages');
 const userRoutes = require('./routes/users');
 const groupRoutes = require('./routes/groups');
+const conversationRoutes = require('./routes/conversations');
 
 const app = express();
 
@@ -74,6 +75,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/groups', groupRoutes);
+app.use('/api/conversations', conversationRoutes);
 
 // Health check endpoint
 app.get('/api/health', async (req, res) => {

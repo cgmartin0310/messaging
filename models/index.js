@@ -4,6 +4,7 @@ const sequelize = require('../config/database');
 const User = require('./User');
 const { Group, GroupMember } = require('./Group');
 const { Message, MessageRead } = require('./Message');
+const { Conversation, ConversationParticipant } = require('./Conversation');
 
 // Set up associations in the correct order
 // First, set up the many-to-many relationship between Users and Groups
@@ -29,6 +30,10 @@ Message.belongsTo(Group, {
   as: 'group', 
   foreignKey: 'groupId' 
 });
+Message.belongsTo(Conversation, { 
+  as: 'conversation', 
+  foreignKey: 'conversationId' 
+});
 Message.belongsTo(Message, { 
   as: 'replyTo', 
   foreignKey: 'replyToId' 
@@ -48,11 +53,32 @@ User.belongsToMany(Message, {
   otherKey: 'MessageId'
 });
 
+// Set up Conversation associations
+Conversation.belongsToMany(User, { 
+  through: ConversationParticipant, 
+  as: 'participants',
+  foreignKey: 'ConversationId',
+  otherKey: 'UserId'
+});
+User.belongsToMany(Conversation, { 
+  through: ConversationParticipant, 
+  as: 'conversations',
+  foreignKey: 'UserId',
+  otherKey: 'ConversationId'
+});
+
+Conversation.hasMany(Message, { 
+  as: 'messages', 
+  foreignKey: 'conversationId' 
+});
+
 module.exports = {
   sequelize,
   User,
   Group,
   GroupMember,
   Message,
-  MessageRead
+  MessageRead,
+  Conversation,
+  ConversationParticipant
 }; 

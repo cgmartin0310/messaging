@@ -2,6 +2,7 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const User = require('./User');
 const { Group } = require('./Group');
+const { Conversation } = require('./Conversation');
 
 const Message = sequelize.define('Message', {
   id: {
@@ -47,6 +48,14 @@ const Message = sequelize.define('Message', {
   twilioConversationId: {
     type: DataTypes.STRING,
     allowNull: true
+  },
+  conversationId: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    references: {
+      model: 'conversations',
+      key: 'id'
+    }
   },
   twilioStatus: {
     type: DataTypes.ENUM('pending', 'sent', 'delivered', 'failed'),
