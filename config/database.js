@@ -1,27 +1,10 @@
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
-// Get database URL and ensure it has SSL parameters
+// Get database URL
 let databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URI || process.env.MONGODB_URI;
 
-// Create SSL configuration based on environment
-const getSSLConfig = () => {
-  if (process.env.NODE_ENV === 'production') {
-    // For production, try different SSL configurations
-    return {
-      require: false, // Make SSL optional
-      rejectUnauthorized: false,
-      // For Render, be more permissive with SSL
-      checkServerIdentity: () => undefined
-    };
-  }
-  return {
-    require: false, // Make SSL optional for development too
-    rejectUnauthorized: false
-  };
-};
-
-// Try to parse the database URL to check if it's a valid PostgreSQL URL
+// Validate database URL
 const isValidPostgresUrl = (url) => {
   try {
     return url && (url.startsWith('postgres://') || url.startsWith('postgresql://'));
@@ -30,12 +13,16 @@ const isValidPostgresUrl = (url) => {
   }
 };
 
-// Only add SSL parameters if it's a valid PostgreSQL URL
-if (databaseUrl && isValidPostgresUrl(databaseUrl) && !databaseUrl.includes('ssl=')) {
-  databaseUrl += (databaseUrl.includes('?') ? '&' : '?') + 'sslmode=prefer';
+// Only modify URL if it's a valid PostgreSQL URL
+if (databaseUrl && isValidPostgresUrl(databaseUrl)) {
+  // Add SSL mode to URL if not present
+  if (!databaseUrl.includes('ssl=') && !databaseUrl.includes('sslmode=')) {
+    databaseUrl += (databaseUrl.includes('?') ? '&' : '?') + 'sslmode=prefer';
+  }
 }
 
-const sequelize = new Sequelize(databaseUrl, {
+// Create Sequelize configuration
+const sequelizeConfig = {
   dialect: 'postgres',
   logging: process.env.NODE_ENV === 'development' ? console.log : false,
   pool: {
@@ -45,8 +32,7 @@ const sequelize = new Sequelize(databaseUrl, {
     idle: 10000
   },
   dialectOptions: {
-    ssl: getSSLConfig(),
-    // Add additional connection options for better compatibility
+    // Add connection timeout
     connectTimeout: 60000,
     options: {
       requestTimeout: 60000,
@@ -61,6 +47,16 @@ const sequelize = new Sequelize(databaseUrl, {
   },
   // Add connection timeout
   timeout: 60000
-});
+};
+
+// Add SSL configuration only for production
+if (process.env.NODE_ENV === 'production') {
+  sequelizeConfig.dialectOptions.ssl = {
+    require: false,
+    rejectUnauthorized: false
+  };
+}
+
+const sequelize = new Sequelize(databaseUrl, sequelizeConfig);
 
 module.exports = sequelize; 
