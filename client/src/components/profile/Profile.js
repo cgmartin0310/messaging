@@ -1,341 +1,442 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { useForm } from 'react-hook-form';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { ArrowLeft, User, Mail, Phone, Save, Key } from 'lucide-react';
+import { 
+  Person, 
+  Settings, 
+  Save, 
+  Edit, 
+  Camera,
+  Email,
+  Phone,
+  LocationOn,
+  Security,
+  Visibility,
+  VisibilityOff
+} from '@mui/icons-material';
+import { 
+  AppBar, 
+  Toolbar, 
+  Typography, 
+  Box, 
+  Paper, 
+  TextField, 
+  Button, 
+  Avatar, 
+  Grid,
+  Card,
+  CardContent,
+  Tabs,
+  Tab,
+  IconButton,
+  CircularProgress,
+  Divider
+} from '@mui/material';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 const Profile = () => {
   const { user, updateUser } = useAuth();
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [contacts, setContacts] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [searching, setSearching] = useState(false);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset
-  } = useForm({
-    defaultValues: {
-      firstName: user?.firstName || '',
-      lastName: user?.lastName || '',
-      avatar: user?.avatar || ''
-    }
+  // Form states
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    bio: '',
+    location: '',
+    avatar: null
+  });
+
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
   });
 
   useEffect(() => {
-    fetchContacts();
+    fetchProfile();
   }, []);
 
-  const fetchContacts = async () => {
+  const fetchProfile = async () => {
     try {
-      const response = await axios.get('/api/users/contacts');
-      setContacts(response.data.contacts);
+      setLoading(true);
+      const response = await axios.get('/api/users/profile');
+      setProfile(response.data.user);
+      setFormData({
+        firstName: response.data.user.firstName || '',
+        lastName: response.data.user.lastName || '',
+        email: response.data.user.email || '',
+        phone: response.data.user.phone || '',
+        bio: response.data.user.bio || '',
+        location: response.data.user.location || '',
+        avatar: null
+      });
     } catch (error) {
-      console.error('Error fetching contacts:', error);
+      console.error('Error fetching profile:', error);
+      toast.error('Failed to load profile');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const onSubmit = async (data) => {
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFormData(prev => ({
+        ...prev,
+        avatar: file
+      }));
+    }
+  };
+
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
     try {
-      setLoading(true);
-      const response = await axios.put('/api/users/profile', data);
+      setSaving(true);
+      const formDataToSend = new FormData();
+      
+      Object.keys(formData).forEach(key => {
+        if (formData[key] !== null) {
+          formDataToSend.append(key, formData[key]);
+        }
+      });
+
+      const response = await axios.put('/api/users/profile', formDataToSend, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
       updateUser(response.data.user);
+      setProfile(response.data.user);
       toast.success('Profile updated successfully!');
     } catch (error) {
       console.error('Error updating profile:', error);
       toast.error('Failed to update profile');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const handlePasswordChange = async (data) => {
-    try {
-      setLoading(true);
-      await axios.put('/api/users/change-password', data);
-      toast.success('Password changed successfully!');
-      setShowPasswordForm(false);
-      reset();
-    } catch (error) {
-      console.error('Error changing password:', error);
-      toast.error('Failed to change password');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSearchUsers = async (query) => {
-    if (query.length < 2) {
-      setSearchResults([]);
+  const handlePasswordUpdate = async (e) => {
+    e.preventDefault();
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error('New passwords do not match');
       return;
     }
 
     try {
-      setSearching(true);
-      const response = await axios.get(`/api/users/search?q=${query}`);
-      setSearchResults(response.data.users);
+      setSaving(true);
+      await axios.put('/api/users/password', {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      });
+
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      toast.success('Password updated successfully!');
     } catch (error) {
-      console.error('Error searching users:', error);
+      console.error('Error updating password:', error);
+      toast.error('Failed to update password');
     } finally {
-      setSearching(false);
+      setSaving(false);
     }
   };
 
-  const handleAddContact = async (userId) => {
-    try {
-      await axios.post(`/api/users/contacts/${userId}`);
-      toast.success('Contact added successfully!');
-      fetchContacts();
-      setSearchResults([]);
-      setSearchQuery('');
-    } catch (error) {
-      console.error('Error adding contact:', error);
-      toast.error('Failed to add contact');
-    }
-  };
-
-  const handleRemoveContact = async (userId) => {
-    try {
-      await axios.delete(`/api/users/contacts/${userId}`);
-      toast.success('Contact removed successfully!');
-      fetchContacts();
-    } catch (error) {
-      console.error('Error removing contact:', error);
-      toast.error('Failed to remove contact');
-    }
-  };
+  if (loading) {
+    return (
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <LoadingSpinner size="lg" />
+      </Box>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <Box sx={{ minHeight: '100vh', bgcolor: 'grey.50' }}>
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="p-2 text-gray-400 hover:text-gray-600"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-              <h1 className="text-xl font-semibold text-gray-900">Profile</h1>
-            </div>
-          </div>
-        </div>
-      </header>
+      <AppBar position="static" elevation={1}>
+        <Toolbar>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            Profile Settings
+          </Typography>
+          <IconButton color="inherit">
+            <Settings />
+          </IconButton>
+        </Toolbar>
+      </AppBar>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Profile Information */}
-          <div className="card p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6">Profile Information</h2>
-            
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">First Name</label>
-                <input
-                  type="text"
-                  className="input mt-1"
-                  {...register('firstName', {
-                    required: 'First name is required',
-                    minLength: {
-                      value: 1,
-                      message: 'First name must be at least 1 character'
-                    }
-                  })}
-                />
-                {errors.firstName && (
-                  <p className="mt-1 text-sm text-red-600">{errors.firstName.message}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Last Name</label>
-                <input
-                  type="text"
-                  className="input mt-1"
-                  {...register('lastName', {
-                    required: 'Last name is required',
-                    minLength: {
-                      value: 1,
-                      message: 'Last name must be at least 1 character'
-                    }
-                  })}
-                />
-                {errors.lastName && (
-                  <p className="mt-1 text-sm text-red-600">{errors.lastName.message}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Avatar URL (optional)</label>
-                <input
-                  type="url"
-                  className="input mt-1"
-                  placeholder="https://example.com/avatar.jpg"
-                  {...register('avatar', {
-                    pattern: {
-                      value: /^https?:\/\/.+/,
-                      message: 'Please enter a valid URL'
-                    }
-                  })}
-                />
-                {errors.avatar && (
-                  <p className="mt-1 text-sm text-red-600">{errors.avatar.message}</p>
-                )}
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn btn-primary w-full flex items-center justify-center"
-              >
-                {loading ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                ) : (
-                  <Save className="h-4 w-4 mr-2" />
-                )}
-                {loading ? 'Updating...' : 'Update Profile'}
-              </button>
-            </form>
-
-            {/* Change Password Section */}
-            <div className="mt-8 pt-6 border-t border-gray-200">
-              <button
-                onClick={() => setShowPasswordForm(!showPasswordForm)}
-                className="btn btn-secondary w-full flex items-center justify-center"
-              >
-                <Key className="h-4 w-4 mr-2" />
-                Change Password
-              </button>
-
-              {showPasswordForm && (
-                <form onSubmit={handleSubmit(handlePasswordChange)} className="mt-4 space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Current Password</label>
-                    <input
-                      type="password"
-                      className="input mt-1"
-                      {...register('currentPassword', {
-                        required: 'Current password is required'
-                      })}
-                    />
-                    {errors.currentPassword && (
-                      <p className="mt-1 text-sm text-red-600">{errors.currentPassword.message}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">New Password</label>
-                    <input
-                      type="password"
-                      className="input mt-1"
-                      {...register('newPassword', {
-                        required: 'New password is required',
-                        minLength: {
-                          value: 8,
-                          message: 'Password must be at least 8 characters'
-                        }
-                      })}
-                    />
-                    {errors.newPassword && (
-                      <p className="mt-1 text-sm text-red-600">{errors.newPassword.message}</p>
-                    )}
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="btn btn-primary w-full"
+      <Box sx={{ maxWidth: 800, mx: 'auto', p: 3 }}>
+        <Grid container spacing={3}>
+          {/* Profile Picture */}
+          <Grid item xs={12} md={4}>
+            <Card>
+              <CardContent sx={{ textAlign: 'center' }}>
+                <Box sx={{ position: 'relative', display: 'inline-block', mb: 2 }}>
+                  <Avatar
+                    src={profile?.avatar}
+                    sx={{ 
+                      width: 120, 
+                      height: 120, 
+                      mx: 'auto',
+                      bgcolor: 'primary.main'
+                    }}
                   >
-                    {loading ? 'Changing...' : 'Change Password'}
-                  </button>
-                </form>
-              )}
-            </div>
-          </div>
+                    {profile?.firstName?.charAt(0)?.toUpperCase()}
+                  </Avatar>
+                  <IconButton
+                    component="label"
+                    sx={{
+                      position: 'absolute',
+                      bottom: 0,
+                      right: 0,
+                      bgcolor: 'primary.main',
+                      color: 'white',
+                      '&:hover': { bgcolor: 'primary.dark' }
+                    }}
+                  >
+                    <Camera />
+                    <input
+                      type="file"
+                      hidden
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                    />
+                  </IconButton>
+                </Box>
+                <Typography variant="h5" gutterBottom>
+                  {profile?.firstName} {profile?.lastName}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  @{profile?.username}
+                </Typography>
+                {profile?.bio && (
+                  <Typography variant="body2" sx={{ mt: 2 }}>
+                    {profile.bio}
+                  </Typography>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
 
-          {/* Contacts Management */}
-          <div className="card p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6">Contacts</h2>
-            
-            {/* Search Users */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Search Users</label>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  handleSearchUsers(e.target.value);
-                }}
-                placeholder="Search by name or username..."
-                className="input"
-              />
-              
-              {searchResults.length > 0 && (
-                <div className="mt-2 space-y-2">
-                  {searchResults.map((user) => (
-                    <div key={user._id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                      <div>
-                        <p className="font-medium">{user.firstName} {user.lastName}</p>
-                        <p className="text-sm text-gray-500">@{user.username}</p>
-                      </div>
-                      <button
-                        onClick={() => handleAddContact(user._id)}
-                        className="btn btn-primary text-sm"
-                      >
-                        Add
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+          {/* Profile Forms */}
+          <Grid item xs={12} md={8}>
+            <Card>
+              <CardContent>
+                <Tabs 
+                  value={activeTab} 
+                  onChange={(e, newValue) => setActiveTab(newValue)}
+                  sx={{ mb: 3 }}
+                >
+                  <Tab label="Profile Information" />
+                  <Tab label="Security" />
+                </Tabs>
 
-            {/* Current Contacts */}
-            <div>
-              <h3 className="text-md font-medium text-gray-900 mb-4">Your Contacts</h3>
-              {contacts.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No contacts yet</p>
-              ) : (
-                <div className="space-y-2">
-                  {contacts.map((contact) => (
-                    <div key={contact._id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                          <span className="text-sm font-medium text-gray-600">
-                            {contact.firstName.charAt(0)}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-medium">{contact.firstName} {contact.lastName}</p>
-                          <p className="text-sm text-gray-500">@{contact.username}</p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleRemoveContact(contact._id)}
-                        className="btn btn-danger text-sm"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+                {activeTab === 0 && (
+                  <Box component="form" onSubmit={handleProfileUpdate}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="First Name"
+                          name="firstName"
+                          value={formData.firstName}
+                          onChange={handleInputChange}
+                          required
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Last Name"
+                          name="lastName"
+                          value={formData.lastName}
+                          onChange={handleInputChange}
+                          required
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          label="Email"
+                          name="email"
+                          type="email"
+                          value={formData.email}
+                          onChange={handleInputChange}
+                          required
+                          InputProps={{
+                            startAdornment: <Email sx={{ mr: 1, color: 'text.secondary' }} />
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          label="Phone"
+                          name="phone"
+                          value={formData.phone}
+                          onChange={handleInputChange}
+                          InputProps={{
+                            startAdornment: <Phone sx={{ mr: 1, color: 'text.secondary' }} />
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          label="Location"
+                          name="location"
+                          value={formData.location}
+                          onChange={handleInputChange}
+                          InputProps={{
+                            startAdornment: <LocationOn sx={{ mr: 1, color: 'text.secondary' }} />
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          label="Bio"
+                          name="bio"
+                          value={formData.bio}
+                          onChange={handleInputChange}
+                          multiline
+                          rows={4}
+                          placeholder="Tell us about yourself..."
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Button
+                          type="submit"
+                          variant="contained"
+                          disabled={saving}
+                          startIcon={saving ? <CircularProgress size={16} /> : <Save />}
+                          sx={{ mt: 2 }}
+                        >
+                          {saving ? 'Saving...' : 'Save Changes'}
+                        </Button>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                )}
+
+                {activeTab === 1 && (
+                  <Box component="form" onSubmit={handlePasswordUpdate}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          label="Current Password"
+                          name="currentPassword"
+                          type={showPassword ? 'text' : 'password'}
+                          value={passwordData.currentPassword}
+                          onChange={handlePasswordChange}
+                          required
+                          InputProps={{
+                            startAdornment: <Security sx={{ mr: 1, color: 'text.secondary' }} />,
+                            endAdornment: (
+                              <IconButton
+                                onClick={() => setShowPassword(!showPassword)}
+                                edge="end"
+                              >
+                                {showPassword ? <VisibilityOff /> : <Visibility />}
+                              </IconButton>
+                            )
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          label="New Password"
+                          name="newPassword"
+                          type={showNewPassword ? 'text' : 'password'}
+                          value={passwordData.newPassword}
+                          onChange={handlePasswordChange}
+                          required
+                          InputProps={{
+                            startAdornment: <Security sx={{ mr: 1, color: 'text.secondary' }} />,
+                            endAdornment: (
+                              <IconButton
+                                onClick={() => setShowNewPassword(!showNewPassword)}
+                                edge="end"
+                              >
+                                {showNewPassword ? <VisibilityOff /> : <Visibility />}
+                              </IconButton>
+                            )
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          label="Confirm New Password"
+                          name="confirmPassword"
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          value={passwordData.confirmPassword}
+                          onChange={handlePasswordChange}
+                          required
+                          InputProps={{
+                            startAdornment: <Security sx={{ mr: 1, color: 'text.secondary' }} />,
+                            endAdornment: (
+                              <IconButton
+                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                edge="end"
+                              >
+                                {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                              </IconButton>
+                            )
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Button
+                          type="submit"
+                          variant="contained"
+                          disabled={saving}
+                          startIcon={saving ? <CircularProgress size={16} /> : <Save />}
+                          sx={{ mt: 2 }}
+                        >
+                          {saving ? 'Updating...' : 'Update Password'}
+                        </Button>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </Box>
+    </Box>
   );
 };
 

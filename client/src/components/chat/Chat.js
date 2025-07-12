@@ -3,7 +3,24 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Send, ArrowLeft, Users, MoreVertical } from 'lucide-react';
+import { Send, ArrowBack, People, MoreVert } from '@mui/icons-material';
+import { 
+  AppBar, 
+  Toolbar, 
+  Typography, 
+  Box, 
+  Paper, 
+  TextField, 
+  Button, 
+  Avatar, 
+  List, 
+  ListItem, 
+  ListItemText, 
+  ListItemAvatar, 
+  IconButton, 
+  CircularProgress,
+  Chip
+} from '@mui/material';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 const Chat = () => {
@@ -76,108 +93,145 @@ const Chat = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <LoadingSpinner size="lg" />
-      </div>
+      </Box>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="p-2 text-gray-400 hover:text-gray-600"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-              <div>
-                <h1 className="text-lg font-semibold text-gray-900">{group?.name}</h1>
-                <p className="text-sm text-gray-500">{group?.memberCount} members</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <button className="p-2 text-gray-400 hover:text-gray-600">
-                <Users className="h-5 w-5" />
-              </button>
-              <button className="p-2 text-gray-400 hover:text-gray-600">
-                <MoreVertical className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <AppBar position="static" elevation={1}>
+        <Toolbar>
+          <IconButton
+            edge="start"
+            color="inherit"
+            onClick={() => navigate('/dashboard')}
+            sx={{ mr: 2 }}
+          >
+            <ArrowBack />
+          </IconButton>
+          <Box sx={{ flexGrow: 1 }}>
+            <Typography variant="h6" component="div">
+              {group?.name}
+            </Typography>
+            <Typography variant="body2" color="inherit" sx={{ opacity: 0.8 }}>
+              {group?.memberCount} members
+            </Typography>
+          </Box>
+          <IconButton color="inherit">
+            <People />
+          </IconButton>
+          <IconButton color="inherit">
+            <MoreVert />
+          </IconButton>
+        </Toolbar>
+      </AppBar>
 
       {/* Messages */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-[calc(100vh-200px)] flex flex-col">
+      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', bgcolor: 'grey.50' }}>
+        <Paper 
+          elevation={0} 
+          sx={{ 
+            flexGrow: 1, 
+            m: 2, 
+            display: 'flex', 
+            flexDirection: 'column',
+            bgcolor: 'white',
+            borderRadius: 2
+          }}
+        >
           {/* Messages List */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
             {messages.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <p>No messages yet</p>
-                <p className="text-sm">Start the conversation!</p>
-              </div>
+              <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
+                <Typography variant="h6" gutterBottom>
+                  No messages yet
+                </Typography>
+                <Typography variant="body2">
+                  Start the conversation!
+                </Typography>
+              </Box>
             ) : (
-              messages.map((message) => (
-                <div
-                  key={message._id}
-                  className={`flex ${message.sender._id === user._id ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                    message.sender._id === user._id 
-                      ? 'bg-primary-600 text-white' 
-                      : 'bg-gray-200 text-gray-900'
-                  }`}>
-                    <div className="flex items-center space-x-2 mb-1">
-                      <span className="text-sm font-medium">
-                        {message.sender.firstName} {message.sender.lastName}
-                      </span>
-                      <span className="text-xs opacity-75">
-                        {formatTime(message.createdAt)}
-                      </span>
-                    </div>
-                    <p className="text-sm">{message.content}</p>
-                  </div>
-                </div>
-              ))
+              <List sx={{ p: 0 }}>
+                {messages.map((message) => (
+                  <ListItem
+                    key={message._id}
+                    sx={{
+                      flexDirection: 'column',
+                      alignItems: message.sender._id === user._id ? 'flex-end' : 'flex-start',
+                      p: 0,
+                      mb: 1
+                    }}
+                  >
+                    <Paper
+                      elevation={1}
+                      sx={{
+                        p: 2,
+                        maxWidth: '70%',
+                        bgcolor: message.sender._id === user._id ? 'primary.main' : 'grey.100',
+                        color: message.sender._id === user._id ? 'white' : 'text.primary',
+                        borderRadius: 2
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                        <Avatar
+                          sx={{ 
+                            width: 24, 
+                            height: 24, 
+                            mr: 1,
+                            bgcolor: message.sender._id === user._id ? 'primary.dark' : 'grey.300',
+                            color: message.sender._id === user._id ? 'white' : 'text.primary'
+                          }}
+                        >
+                          {message.sender.firstName?.charAt(0)?.toUpperCase()}
+                        </Avatar>
+                        <Typography variant="caption" sx={{ fontWeight: 500 }}>
+                          {message.sender.firstName} {message.sender.lastName}
+                        </Typography>
+                        <Typography variant="caption" sx={{ ml: 1, opacity: 0.7 }}>
+                          {formatTime(message.createdAt)}
+                        </Typography>
+                      </Box>
+                      <Typography variant="body2">
+                        {message.content}
+                      </Typography>
+                    </Paper>
+                  </ListItem>
+                ))}
+                <div ref={messagesEndRef} />
+              </List>
             )}
-            <div ref={messagesEndRef} />
-          </div>
+          </Box>
 
           {/* Message Input */}
-          <div className="border-t border-gray-200 p-4">
-            <form onSubmit={handleSendMessage} className="flex space-x-4">
-              <input
-                type="text"
+          <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+            <Box component="form" onSubmit={handleSendMessage} sx={{ display: 'flex', gap: 1 }}>
+              <TextField
+                fullWidth
+                variant="outlined"
+                placeholder="Type your message..."
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Type your message..."
-                className="flex-1 input"
                 disabled={sending}
+                size="small"
+                sx={{ flexGrow: 1 }}
               />
-              <button
+              <Button
                 type="submit"
+                variant="contained"
                 disabled={sending || !newMessage.trim()}
-                className="btn btn-primary flex items-center space-x-2 disabled:opacity-50"
+                startIcon={sending ? <CircularProgress size={16} color="inherit" /> : <Send />}
+                sx={{ minWidth: 'auto', px: 2 }}
               >
-                {sending ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-                <span>{sending ? 'Sending...' : 'Send'}</span>
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
+                {sending ? 'Sending...' : 'Send'}
+              </Button>
+            </Box>
+          </Box>
+        </Paper>
+      </Box>
+    </Box>
   );
 };
 

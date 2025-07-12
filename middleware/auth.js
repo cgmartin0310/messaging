@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const { User } = require('../models');
 
 // Middleware to authenticate JWT token
 const authenticateToken = async (req, res, next) => {
@@ -16,8 +16,10 @@ const authenticateToken = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Get user from database
-    const user = await User.findById(decoded.userId).select('-password');
+    // Get user from database using Sequelize syntax
+    const user = await User.findByPk(decoded.userId, {
+      attributes: { exclude: ['password'] }
+    });
     if (!user) {
       return res.status(401).json({ 
         error: 'Invalid token',
@@ -33,7 +35,12 @@ const authenticateToken = async (req, res, next) => {
     }
 
     // Update last seen
-    await user.updateLastSeen();
+    try {
+      await user.updateLastSeen();
+    } catch (updateError) {
+      console.error('Error updating last seen:', updateError);
+      // Continue anyway - this is not critical
+    }
     
     req.user = user;
     next();
@@ -63,10 +70,10 @@ const authenticateToken = async (req, res, next) => {
 const isGroupAdmin = async (req, res, next) => {
   try {
     const { groupId } = req.params;
-    const userId = req.user._id;
+    const userId = req.user.id;
 
-    const Group = require('../models/Group');
-    const group = await Group.findById(groupId);
+    const { Group } = require('../models');
+    const group = await Group.findByPk(groupId);
     
     if (!group) {
       return res.status(404).json({ 
@@ -95,35 +102,26 @@ const isGroupAdmin = async (req, res, next) => {
 
 // Middleware to check if user is member of a group
 const isGroupMember = async (req, res, next) => {
+  // Defensive: check if req.user exists
+  if (!req.user) {
+    console.error('isGroupMember: req.user is undefined. User is not authenticated.');
+    return res.status(401).json({ error: 'Unauthorized: user not authenticated' });
+  }
+  const userId = req.user.id;
+  const groupId = req.params.groupId;
+  console.log('isGroupMember: userId', userId, 'groupId', groupId);
   try {
-    const { groupId } = req.params;
-    const userId = req.user._id;
-
-    const Group = require('../models/Group');
-    const group = await Group.findById(groupId);
-    
-    if (!group) {
-      return res.status(404).json({ 
-        error: 'Group not found',
-        message: 'The specified group does not exist' 
-      });
-    }
-
-    if (!group.isMember(userId)) {
-      return res.status(403).json({ 
-        error: 'Access denied',
-        message: 'You must be a member of this group to perform this action' 
-      });
-    }
-
-    req.group = group;
-    next();
-  } catch (error) {
-    console.error('Group member middleware error:', error);
-    return res.status(500).json({ 
-      error: 'Authorization error',
-      message: 'Internal server error during authorization' 
+    const { Group } = require('../models');
+    const group = await Group.findByPk(groupId, {
+      include: [{ model: User, as: 'members', where: { id: userId } }]
     });
+    if (!group) {
+      return res.status(403).json({ error: 'Forbidden: user is not a member of this group' });
+    }
+    next();
+  } catch (err) {
+    console.error('isGroupMember error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
 
@@ -131,10 +129,10 @@ const isGroupMember = async (req, res, next) => {
 const isMessageOwner = async (req, res, next) => {
   try {
     const { messageId } = req.params;
-    const userId = req.user._id;
+    const userId = req.user.id;
 
-    const Message = require('../models/Message');
-    const message = await Message.findById(messageId);
+    const { Message } = require('../models');
+    const message = await Message.findByPk(messageId);
     
     if (!message) {
       return res.status(404).json({ 
@@ -143,7 +141,7 @@ const isMessageOwner = async (req, res, next) => {
       });
     }
 
-    if (message.sender.toString() !== userId.toString()) {
+    if (message.senderId !== userId) {
       return res.status(403).json({ 
         error: 'Access denied',
         message: 'You can only edit or delete your own messages' 

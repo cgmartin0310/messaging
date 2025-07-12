@@ -1,17 +1,34 @@
 import React from 'react';
+import { Box, CircularProgress, Typography } from '@mui/material';
 
-const LoadingSpinner = ({ size = 'md', className = '' }) => {
-  const sizeClasses = {
-    sm: 'w-4 h-4',
-    md: 'w-8 h-8',
-    lg: 'w-12 h-12',
-    xl: 'w-16 h-16'
+const LoadingSpinner = ({ size = 'medium', message = 'Loading...' }) => {
+  const getSize = () => {
+    switch (size) {
+      case 'small':
+        return 24;
+      case 'large':
+      case 'lg':
+        return 48;
+      default:
+        return 32;
+    }
   };
 
   return (
-    <div className={`flex justify-center items-center ${className}`}>
-      <div className={`${sizeClasses[size]} animate-spin rounded-full border-4 border-gray-200 border-t-primary-600`}></div>
-    </div>
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column',
+      alignItems: 'center', 
+      justifyContent: 'center',
+      gap: 2
+    }}>
+      <CircularProgress size={getSize()} />
+      {message && (
+        <Typography variant="body2" color="text.secondary">
+          {message}
+        </Typography>
+      )}
+    </Box>
   );
 };
 

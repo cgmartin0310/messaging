@@ -105,7 +105,7 @@ router.post('/register', validateRegistration, async (req, res) => {
     }
 
     // Create new user
-    const user = new User({
+    const user = await User.create({
       username,
       email,
       password,
@@ -114,10 +114,8 @@ router.post('/register', validateRegistration, async (req, res) => {
       lastName
     });
 
-    await user.save();
-
     // Generate token
-    const token = generateToken(user._id);
+    const token = generateToken(user.id);
 
     res.status(201).json({
       message: 'User registered successfully',
@@ -194,7 +192,7 @@ router.post('/login', validateLogin, async (req, res) => {
     await user.updateLastSeen();
 
     // Generate token
-    const token = generateToken(user._id);
+    const token = generateToken(user.id);
 
     res.json({
       message: 'Login successful',

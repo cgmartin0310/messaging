@@ -2,6 +2,10 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
+// Set axios base URL for API calls
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+axios.defaults.baseURL = API_URL;
+
 const AuthContext = createContext();
 
 export const useAuth = () => {
@@ -31,7 +35,7 @@ export const AuthProvider = ({ children }) => {
     const checkAuth = async () => {
       if (token) {
         try {
-          const response = await axios.get('/api/auth/profile');
+          const response = await axios.get('/api/users/profile');
           setUser(response.data.user);
         } catch (error) {
           console.error('Auth check failed:', error);
@@ -44,6 +48,23 @@ export const AuthProvider = ({ children }) => {
 
     checkAuth();
   }, [token]);
+
+  // Axios request interceptor to always attach token
+  useEffect(() => {
+    const interceptor = axios.interceptors.request.use(
+      (config) => {
+        const token = localStorage.getItem('token');
+        if (token) {
+          config.headers['Authorization'] = `Bearer ${token}`;
+        } else {
+          delete config.headers['Authorization'];
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+    return () => axios.interceptors.request.eject(interceptor);
+  }, []);
 
   const login = async (email, password) => {
     try {
