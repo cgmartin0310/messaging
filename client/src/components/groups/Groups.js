@@ -71,6 +71,7 @@ const Groups = () => {
     try {
       setLoading(true);
       const response = await axios.get('/api/groups');
+      console.log('Groups API response:', response.data);
       setGroups(response.data.groups);
     } catch (error) {
       console.error('Error fetching groups:', error);

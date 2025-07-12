@@ -112,6 +112,36 @@ router.post('/', authenticateToken, validateGroup, async (req, res) => {
   }
 });
 
+// Test route to create a sample group
+router.post('/test-create', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Create a test group
+    const testGroup = await Group.create({
+      name: 'Test Group',
+      description: 'This is a test group for debugging',
+      adminId: userId,
+      isActive: true
+    });
+    
+    // Add the user as a member
+    await testGroup.addMembers([userId]);
+    
+    res.json({
+      message: 'Test group created successfully',
+      group: {
+        id: testGroup.id,
+        name: testGroup.name,
+        description: testGroup.description
+      }
+    });
+  } catch (error) {
+    console.error('Test create group error:', error);
+    res.status(500).json({ error: 'Failed to create test group' });
+  }
+});
+
 // Debug route to see what's in the database
 router.get('/debug', authenticateToken, async (req, res) => {
   try {
