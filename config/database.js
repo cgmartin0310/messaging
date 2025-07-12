@@ -4,30 +4,36 @@ require('dotenv').config();
 // Get database URL and ensure it has SSL parameters
 let databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URI || process.env.MONGODB_URI;
 
-// If the URL doesn't have SSL parameters, add them
-if (databaseUrl && !databaseUrl.includes('ssl=')) {
-  databaseUrl += (databaseUrl.includes('?') ? '&' : '?') + 'ssl=true';
-}
-
 // Create SSL configuration based on environment
 const getSSLConfig = () => {
   if (process.env.NODE_ENV === 'production') {
+    // For production, try different SSL configurations
     return {
-      require: true,
+      require: false, // Make SSL optional
       rejectUnauthorized: false,
       // For Render, be more permissive with SSL
-      checkServerIdentity: () => undefined,
-      // Add these if you have SSL certificates
-      ...(process.env.SSL_CA && { ca: process.env.SSL_CA }),
-      ...(process.env.SSL_CERT && { cert: process.env.SSL_CERT }),
-      ...(process.env.SSL_KEY && { key: process.env.SSL_KEY })
+      checkServerIdentity: () => undefined
     };
   }
   return {
-    require: true,
+    require: false, // Make SSL optional for development too
     rejectUnauthorized: false
   };
 };
+
+// Try to parse the database URL to check if it's a valid PostgreSQL URL
+const isValidPostgresUrl = (url) => {
+  try {
+    return url && (url.startsWith('postgres://') || url.startsWith('postgresql://'));
+  } catch (error) {
+    return false;
+  }
+};
+
+// Only add SSL parameters if it's a valid PostgreSQL URL
+if (databaseUrl && isValidPostgresUrl(databaseUrl) && !databaseUrl.includes('ssl=')) {
+  databaseUrl += (databaseUrl.includes('?') ? '&' : '?') + 'sslmode=prefer';
+}
 
 const sequelize = new Sequelize(databaseUrl, {
   dialect: 'postgres',
@@ -39,7 +45,13 @@ const sequelize = new Sequelize(databaseUrl, {
     idle: 10000
   },
   dialectOptions: {
-    ssl: getSSLConfig()
+    ssl: getSSLConfig(),
+    // Add additional connection options for better compatibility
+    connectTimeout: 60000,
+    options: {
+      requestTimeout: 60000,
+      cancelTimeout: 5000
+    }
   },
   // Add retry logic for connection issues
   retry: {
