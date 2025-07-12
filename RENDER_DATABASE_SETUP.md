@@ -52,21 +52,22 @@ npm run test-db
 
 ### 5. Common Render PostgreSQL URL Formats
 
-Try these formats in order:
+Try these formats in order (SSL is used only as last resort):
 
-**Format 1 (Recommended):**
+**Format 1 (Recommended - No SSL):**
 ```
 postgresql://username:password@host:port/database
 ```
 
-**Format 2 (If Format 1 fails):**
+**Format 2 (Clean URL - No SSL parameters):**
+```
+postgresql://username:password@host:port/database
+```
+(Remove any SSL parameters from your URL)
+
+**Format 3 (Only if above fail - With SSL):**
 ```
 postgresql://username:password@host:port/database?sslmode=require
-```
-
-**Format 3 (If Format 2 fails):**
-```
-postgresql://username:password@host:port/database?ssl=true
 ```
 
 ### 6. Quick Fix Steps
@@ -75,6 +76,7 @@ postgresql://username:password@host:port/database?ssl=true
 2. **Remove any SSL parameters from the URL** (like `?ssl=true` or `?sslmode=require`)
 3. **Set this clean URL as your DATABASE_URL environment variable**
 4. **Redeploy your application**
+5. **The app will try non-SSL first, then SSL only if needed**
 
 ### 7. Verify Database Creation
 
