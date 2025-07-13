@@ -393,26 +393,26 @@ router.get('/unread/count', authenticateToken, async (req, res) => {
 
     const userId = req.user.id;
 
-    // Get user's groups
-    const userGroups = await Group.findAll({
+    // Get user's conversations
+    const userConversations = await Conversation.findAll({
       include: [
         {
-          model: User,
-          as: 'members',
-          where: { id: userId },
-          attributes: []
+          model: ConversationParticipant,
+          as: 'participants',
+          where: { identity: userId },
+          required: true
         }
       ],
       where: { isActive: true }
     });
 
-    const groupIds = userGroups.map(group => group.id);
+    const conversationIds = userConversations.map(conv => conv.id);
 
     // For now, return empty unread counts since we need to implement the Message model properly
     // This is a simplified version - in a real app, you'd count unread messages
     const unreadMap = {};
-    groupIds.forEach(groupId => {
-      unreadMap[groupId] = 0; // Placeholder - implement actual unread counting
+    conversationIds.forEach(conversationId => {
+      unreadMap[conversationId] = 0; // Placeholder - implement actual unread counting
     });
 
     res.json({

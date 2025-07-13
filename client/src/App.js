@@ -9,7 +9,7 @@ import Register from './components/auth/Register';
 import Dashboard from './components/Dashboard';
 import Chat from './components/chat/Chat';
 import Profile from './components/profile/Profile';
-import Groups from './components/groups/Groups';
+
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import LoadingSpinner from './components/common/LoadingSpinner';
 
@@ -69,11 +69,7 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
-        <Route path="/groups" element={
-          <ProtectedRoute>
-            <Groups />
-          </ProtectedRoute>
-        } />
+
       </Routes>
     </Router>
   );

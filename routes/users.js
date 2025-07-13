@@ -1,6 +1,6 @@
 const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
-const { User, Group } = require('../models');
+const { User, Contact } = require('../models');
 const sequelize = require('../config/database');
 
 const router = express.Router();
@@ -15,7 +15,7 @@ const isDatabaseConnected = async () => {
   }
 };
 
-// Get user profile with groups and contacts
+// Get user profile with contacts
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
     // Check if database is connected
@@ -28,23 +28,20 @@ router.get('/profile', authenticateToken, async (req, res) => {
 
     const userId = req.user.id;
 
-    // Get user's groups
-    const userGroups = await Group.findAll({
+    // Get user's contacts
+    const userContacts = await Contact.findAll({
+      where: { isActive: true },
       include: [
         {
           model: User,
-          as: 'members',
-          through: { attributes: [] }, // Don't include junction table attributes
-          attributes: ['id', 'username', 'firstName', 'lastName', 'avatar']
+          as: 'user',
+          attributes: ['id', 'username', 'firstName', 'lastName', 'avatar', 'lastSeen']
         }
-      ],
-      where: {
-        '$members.id$': userId
-      }
+      ]
     });
 
-    // Get all users as contacts (excluding current user)
-    const contacts = await User.findAll({
+    // Get all users as potential contacts (excluding current user)
+    const potentialContacts = await User.findAll({
       where: {
         id: { [sequelize.Sequelize.Op.ne]: userId },
         isActive: true
@@ -52,30 +49,36 @@ router.get('/profile', authenticateToken, async (req, res) => {
       attributes: ['id', 'username', 'firstName', 'lastName', 'avatar', 'lastSeen']
     });
 
-    // Format groups for frontend
-    const groups = userGroups.map(group => ({
-      id: group.id,
-      name: group.name,
-      description: group.description,
-      memberCount: group.members.length,
-      isAdmin: group.adminId === userId,
-      createdAt: group.createdAt
+    // Format contacts for frontend
+    const formattedContacts = userContacts.map(contact => ({
+      id: contact.id,
+      contactType: contact.contactType,
+      userId: contact.userId,
+      phoneNumber: contact.phoneNumber,
+      firstName: contact.firstName,
+      lastName: contact.lastName,
+      displayName: contact.getDisplayName(),
+      avatar: contact.avatar,
+      email: contact.email,
+      notes: contact.notes,
+      createdAt: contact.createdAt
     }));
 
-    // Format contacts for frontend
-    const formattedContacts = contacts.map(contact => ({
+    // Format potential contacts for frontend
+    const formattedPotentialContacts = potentialContacts.map(contact => ({
       id: contact.id,
       username: contact.username,
       firstName: contact.firstName,
       lastName: contact.lastName,
+      displayName: `${contact.firstName} ${contact.lastName}`,
       avatar: contact.avatar,
       lastSeen: contact.lastSeen
     }));
 
     res.json({
       user: req.user.getProfile(),
-      groups,
-      contacts: formattedContacts
+      contacts: formattedContacts,
+      potentialContacts: formattedPotentialContacts
     });
   } catch (error) {
     console.error('Profile error:', error);

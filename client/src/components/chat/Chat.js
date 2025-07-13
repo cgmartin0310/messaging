@@ -35,19 +35,21 @@ const Chat = () => {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    fetchGroupAndMessages();
+    if (groupId) {
+      fetchConversationAndMessages();
+    }
   }, [groupId]);
 
-  const fetchGroupAndMessages = async () => {
+  const fetchConversationAndMessages = async () => {
     try {
       setLoading(true);
-      const [groupRes, messagesRes] = await Promise.all([
-        axios.get(`/api/groups/${groupId}`),
-        axios.get(`/api/messages/${groupId}`)
+      const [conversationRes, messagesRes] = await Promise.all([
+        axios.get(`/api/conversations/${groupId}`),
+        axios.get(`/api/conversations/${groupId}/messages`)
       ]);
 
-      setGroup(groupRes.data.group);
-      setMessages(messagesRes.data.messages.reverse()); // Show newest first
+      setGroup(conversationRes.data);
+      setMessages(messagesRes.data.reverse()); // Show newest first
     } catch (error) {
       console.error('Error fetching chat data:', error);
       toast.error('Failed to load chat');
@@ -71,7 +73,7 @@ const Chat = () => {
 
     try {
       setSending(true);
-      const response = await axios.post(`/api/messages/${groupId}`, {
+      const response = await axios.post(`/api/conversations/${groupId}/messages`, {
         content: newMessage.trim()
       });
 
