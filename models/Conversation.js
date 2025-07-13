@@ -203,13 +203,30 @@ Conversation.createUserToUserConversation = async function(userId, recipientId, 
 Conversation.createDirectConversation = async function(userId, recipientPhoneNumber, recipientName = null) {
   const twilioService = require('../services/twilioService');
   
+  // Format phone number to E.164 format
+  function formatPhoneNumber(phoneNumber) {
+    let cleaned = phoneNumber.replace(/\D/g, '');
+    if (cleaned.length === 10) {
+      return `+1${cleaned}`;
+    }
+    if (cleaned.length === 11 && cleaned.startsWith('1')) {
+      return `+${cleaned}`;
+    }
+    if (phoneNumber.startsWith('+')) {
+      return phoneNumber;
+    }
+    return `+1${cleaned}`;
+  }
+  
+  const formattedPhoneNumber = formatPhoneNumber(recipientPhoneNumber);
+  
   // Create unique conversation name
-  const conversationName = `direct_${userId}_${recipientPhoneNumber.replace(/[^0-9]/g, '')}`;
+  const conversationName = `direct_${userId}_${formattedPhoneNumber.replace(/[^0-9]/g, '')}`;
   
   // Create Twilio conversation
   const twilioResult = await twilioService.createOrGetConversation(
     conversationName,
-    `Direct: ${recipientName || recipientPhoneNumber}`
+    `Direct: ${recipientName || formattedPhoneNumber}`
   );
   
   if (!twilioResult.success) {
@@ -226,7 +243,7 @@ Conversation.createDirectConversation = async function(userId, recipientPhoneNum
     conversation = await this.create({
       twilioConversationId: twilioResult.conversationId,
       conversationType: 'direct',
-      name: recipientName || recipientPhoneNumber
+      name: recipientName || formattedPhoneNumber
     });
   }
   
@@ -269,10 +286,10 @@ Conversation.createDirectConversation = async function(userId, recipientPhoneNum
   // Add SMS recipient as participant
   const smsParticipant = await twilioService.addParticipant(
     twilioResult.conversationId,
-    recipientPhoneNumber,
+    formattedPhoneNumber,
     {
-      displayName: recipientName || recipientPhoneNumber,
-      phoneNumber: recipientPhoneNumber
+      displayName: recipientName || formattedPhoneNumber,
+      phoneNumber: formattedPhoneNumber
     }
   );
   
@@ -281,7 +298,7 @@ Conversation.createDirectConversation = async function(userId, recipientPhoneNum
     const existingSmsParticipant = await ConversationParticipant.findOne({
       where: { 
         ConversationId: conversation.id,
-        identity: recipientPhoneNumber
+        identity: formattedPhoneNumber
       }
     });
     
@@ -290,9 +307,9 @@ Conversation.createDirectConversation = async function(userId, recipientPhoneNum
         ConversationId: conversation.id,
         participantType: 'sms',
         twilioParticipantId: smsParticipant.participantId,
-        identity: recipientPhoneNumber,
-        phoneNumber: recipientPhoneNumber,
-        displayName: recipientName || recipientPhoneNumber
+        identity: formattedPhoneNumber,
+        phoneNumber: formattedPhoneNumber,
+        displayName: recipientName || formattedPhoneNumber
       });
     }
   }
