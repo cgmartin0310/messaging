@@ -111,12 +111,19 @@ Conversation.createUserToUserConversation = async function(userId, recipientId, 
     throw new Error(`Failed to create Twilio conversation: ${twilioResult.error}`);
   }
   
-  // Create conversation in database
-  const conversation = await this.create({
-    twilioConversationId: twilioResult.conversationId,
-    conversationType: 'direct',
-    name: recipientName || 'Direct Chat'
+  // Check if conversation already exists in database
+  let conversation = await this.findOne({
+    where: { twilioConversationId: twilioResult.conversationId }
   });
+  
+  if (!conversation) {
+    // Create conversation in database
+    conversation = await this.create({
+      twilioConversationId: twilioResult.conversationId,
+      conversationType: 'direct',
+      name: recipientName || 'Direct Chat'
+    });
+  }
   
   // Add current user as participant
   const user = await User.findByPk(userId);
@@ -134,14 +141,24 @@ Conversation.createUserToUserConversation = async function(userId, recipientId, 
   );
   
   if (userParticipant.success) {
-    await ConversationParticipant.create({
-      ConversationId: conversation.id,
-      participantType: 'user',
-      twilioParticipantId: userParticipant.participantId,
-      identity: user.id,
-      phoneNumber: user.phoneNumber,
-      displayName: `${user.firstName} ${user.lastName}`
+    // Check if participant already exists
+    const existingUserParticipant = await ConversationParticipant.findOne({
+      where: { 
+        ConversationId: conversation.id,
+        identity: user.id
+      }
     });
+    
+    if (!existingUserParticipant) {
+      await ConversationParticipant.create({
+        ConversationId: conversation.id,
+        participantType: 'user',
+        twilioParticipantId: userParticipant.participantId,
+        identity: user.id,
+        phoneNumber: user.phoneNumber,
+        displayName: `${user.firstName} ${user.lastName}`
+      });
+    }
   }
   
   // Add recipient user as participant
@@ -160,14 +177,24 @@ Conversation.createUserToUserConversation = async function(userId, recipientId, 
   );
   
   if (recipientParticipant.success) {
-    await ConversationParticipant.create({
-      ConversationId: conversation.id,
-      participantType: 'user',
-      twilioParticipantId: recipientParticipant.participantId,
-      identity: recipient.id,
-      phoneNumber: recipient.phoneNumber,
-      displayName: `${recipient.firstName} ${recipient.lastName}`
+    // Check if participant already exists
+    const existingRecipientParticipant = await ConversationParticipant.findOne({
+      where: { 
+        ConversationId: conversation.id,
+        identity: recipient.id
+      }
     });
+    
+    if (!existingRecipientParticipant) {
+      await ConversationParticipant.create({
+        ConversationId: conversation.id,
+        participantType: 'user',
+        twilioParticipantId: recipientParticipant.participantId,
+        identity: recipient.id,
+        phoneNumber: recipient.phoneNumber,
+        displayName: `${recipient.firstName} ${recipient.lastName}`
+      });
+    }
   }
   
   return conversation;
@@ -189,12 +216,19 @@ Conversation.createDirectConversation = async function(userId, recipientPhoneNum
     throw new Error(`Failed to create Twilio conversation: ${twilioResult.error}`);
   }
   
-  // Create conversation in database
-  const conversation = await this.create({
-    twilioConversationId: twilioResult.conversationId,
-    conversationType: 'direct',
-    name: recipientName || recipientPhoneNumber
+  // Check if conversation already exists in database
+  let conversation = await this.findOne({
+    where: { twilioConversationId: twilioResult.conversationId }
   });
+  
+  if (!conversation) {
+    // Create conversation in database
+    conversation = await this.create({
+      twilioConversationId: twilioResult.conversationId,
+      conversationType: 'direct',
+      name: recipientName || recipientPhoneNumber
+    });
+  }
   
   // Add Goldie app user as participant
   const user = await User.findByPk(userId);
@@ -202,7 +236,7 @@ Conversation.createDirectConversation = async function(userId, recipientPhoneNum
     throw new Error('User not found');
   }
   
-  const userParticipant = await twilio.addParticipant(
+  const userParticipant = await twilioService.addParticipant(
     twilioResult.conversationId,
     user.id,
     {
@@ -212,14 +246,24 @@ Conversation.createDirectConversation = async function(userId, recipientPhoneNum
   );
   
   if (userParticipant.success) {
-    await ConversationParticipant.create({
-      ConversationId: conversation.id,
-      participantType: 'user',
-      twilioParticipantId: userParticipant.participantId,
-      identity: user.id,
-      phoneNumber: user.phoneNumber,
-      displayName: `${user.firstName} ${user.lastName}`
+    // Check if participant already exists
+    const existingUserParticipant = await ConversationParticipant.findOne({
+      where: { 
+        ConversationId: conversation.id,
+        identity: user.id
+      }
     });
+    
+    if (!existingUserParticipant) {
+      await ConversationParticipant.create({
+        ConversationId: conversation.id,
+        participantType: 'user',
+        twilioParticipantId: userParticipant.participantId,
+        identity: user.id,
+        phoneNumber: user.phoneNumber,
+        displayName: `${user.firstName} ${user.lastName}`
+      });
+    }
   }
   
   // Add SMS recipient as participant
@@ -233,14 +277,24 @@ Conversation.createDirectConversation = async function(userId, recipientPhoneNum
   );
   
   if (smsParticipant.success) {
-    await ConversationParticipant.create({
-      ConversationId: conversation.id,
-      participantType: 'sms',
-      twilioParticipantId: smsParticipant.participantId,
-      identity: recipientPhoneNumber,
-      phoneNumber: recipientPhoneNumber,
-      displayName: recipientName || recipientPhoneNumber
+    // Check if participant already exists
+    const existingSmsParticipant = await ConversationParticipant.findOne({
+      where: { 
+        ConversationId: conversation.id,
+        identity: recipientPhoneNumber
+      }
     });
+    
+    if (!existingSmsParticipant) {
+      await ConversationParticipant.create({
+        ConversationId: conversation.id,
+        participantType: 'sms',
+        twilioParticipantId: smsParticipant.participantId,
+        identity: recipientPhoneNumber,
+        phoneNumber: recipientPhoneNumber,
+        displayName: recipientName || recipientPhoneNumber
+      });
+    }
   }
   
   return conversation;
