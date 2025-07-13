@@ -1,8 +1,8 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const { Message, Group, User } = require('../models');
+const { Message, User, Conversation, ConversationParticipant } = require('../models');
 const twilioService = require('../services/twilioService');
-const { authenticateToken, isGroupMember, isMessageOwner } = require('../middleware/auth');
+const { authenticateToken, isMessageOwner } = require('../middleware/auth');
 const sequelize = require('../config/database');
 
 const router = express.Router();
@@ -32,8 +32,8 @@ const validateMessage = [
     .withMessage('Invalid reply message ID')
 ];
 
-// Send message to group
-router.post('/:groupId', authenticateToken, isGroupMember, validateMessage, async (req, res) => {
+// Send message to conversation
+router.post('/:conversationId', authenticateToken, validateMessage, async (req, res) => {
   try {
     // Check if database is connected
     if (!(await isDatabaseConnected())) {
@@ -52,34 +52,42 @@ router.post('/:groupId', authenticateToken, isGroupMember, validateMessage, asyn
       });
     }
 
-    const { groupId } = req.params;
+    const { conversationId } = req.params;
     const { content, messageType = 'text', replyTo, mediaUrl, mediaType, mediaSize } = req.body;
     const senderId = req.user.id;
 
-    // Get group with members
-    const group = await Group.findByPk(groupId, {
+    // Get conversation with participants
+    const conversation = await Conversation.findByPk(conversationId, {
       include: [
         {
-          model: User,
-          as: 'members',
-          attributes: ['phoneNumber', 'username', 'firstName', 'lastName']
+          model: ConversationParticipant,
+          as: 'participants',
+          attributes: ['identity', 'displayName', 'phoneNumber']
         }
       ]
     });
 
-    if (!group) {
+    if (!conversation) {
       return res.status(404).json({
-        error: 'Group not found',
-        message: 'The specified group does not exist'
+        error: 'Conversation not found',
+        message: 'The specified conversation does not exist'
       });
     }
 
-    // Create or get Twilio conversation for this group
-    const conversationName = `group-${groupId}`;
-    const conversationResult = await twilioService.createOrGetConversation(
-      conversationName,
-      group.name
-    );
+    // Check if user is participant in this conversation
+    const isParticipant = conversation.participants.some(p => p.identity === senderId);
+    if (!isParticipant) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'You must be a participant in this conversation to send messages'
+      });
+    }
+
+    // Use existing Twilio conversation
+    const conversationResult = {
+      success: true,
+      conversationId: conversation.twilioConversationId
+    };
 
     if (!conversationResult.success) {
       console.error('Failed to create conversation:', conversationResult.error);
@@ -88,7 +96,7 @@ router.post('/:groupId', authenticateToken, isGroupMember, validateMessage, asyn
     // Create message in database
     const message = await Message.create({
       senderId: senderId,
-      groupId: groupId,
+      conversationId: conversationId,
       content,
       messageType,
       mediaUrl,
@@ -131,8 +139,8 @@ router.post('/:groupId', authenticateToken, isGroupMember, validateMessage, asyn
         author,
         content,
         {
-          messageId: message._id.toString(),
-          groupId: groupId,
+          messageId: message.id.toString(),
+          conversationId: conversationId,
           messageType: messageType,
           senderId: senderId.toString()
         }
@@ -154,7 +162,7 @@ router.post('/:groupId', authenticateToken, isGroupMember, validateMessage, asyn
     // Emit to Socket.IO
     const io = req.app.get('io');
     if (io) {
-      io.to(`group-${groupId}`).emit('new-message', {
+      io.to(`conversation-${conversationId}`).emit('new-message', {
         message: messageWithSender,
         twilioResult: twilioMessageResult
       });
@@ -174,8 +182,8 @@ router.post('/:groupId', authenticateToken, isGroupMember, validateMessage, asyn
   }
 });
 
-// Get messages for a group
-router.get('/:groupId', authenticateToken, isGroupMember, async (req, res) => {
+// Get messages for a conversation
+router.get('/:conversationId', authenticateToken, async (req, res) => {
   try {
     // Check if database is connected
     if (!(await isDatabaseConnected())) {
@@ -185,11 +193,31 @@ router.get('/:groupId', authenticateToken, isGroupMember, async (req, res) => {
       });
     }
 
-    const { groupId } = req.params;
+    const { conversationId } = req.params;
     const { page = 1, limit = 50 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const messages = await Message.getGroupMessages(groupId, parseInt(limit), skip);
+    // Check if user is participant in this conversation
+    const conversation = await Conversation.findOne({
+      where: { id: conversationId },
+      include: [
+        {
+          model: ConversationParticipant,
+          as: 'participants',
+          where: { identity: req.user.id },
+          required: true
+        }
+      ]
+    });
+
+    if (!conversation) {
+      return res.status(404).json({
+        error: 'Conversation not found or access denied',
+        message: 'The specified conversation does not exist or you are not a participant'
+      });
+    }
+
+    const messages = await Message.getConversationMessages(conversationId, parseInt(limit), skip);
 
     res.json({
       messages: messages.map(msg => msg.getMessageInfo()),
