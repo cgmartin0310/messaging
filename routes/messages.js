@@ -318,12 +318,23 @@ router.post('/:messageId/read', authenticateToken, async (req, res) => {
       });
     }
 
-    // Check if user is member of the group
-    const group = await Group.findByPk(message.groupId);
-    if (!group || !group.isMember(userId)) {
+    // Check if user is participant in the conversation
+    const conversation = await Conversation.findOne({
+      where: { id: message.conversationId },
+      include: [
+        {
+          model: ConversationParticipant,
+          as: 'participants',
+          where: { identity: userId },
+          required: true
+        }
+      ]
+    });
+
+    if (!conversation) {
       return res.status(403).json({
         error: 'Access denied',
-        message: 'You must be a member of this group to mark messages as read'
+        message: 'You must be a participant in this conversation to mark messages as read'
       });
     }
 
@@ -364,8 +375,8 @@ router.put('/:messageId', authenticateToken, isMessageOwner, [
 
     // Emit to Socket.IO
     const io = req.app.get('io');
-    io.to(`group-${message.group}`).emit('message-edited', {
-      messageId: message._id,
+    io.to(`conversation-${message.conversationId}`).emit('message-edited', {
+      messageId: message.id,
       content: message.content,
       editedAt: message.editedAt
     });
@@ -392,8 +403,8 @@ router.delete('/:messageId', authenticateToken, isMessageOwner, async (req, res)
 
     // Emit to Socket.IO
     const io = req.app.get('io');
-    io.to(`group-${message.group}`).emit('message-deleted', {
-      messageId: message._id
+    io.to(`conversation-${message.conversationId}`).emit('message-deleted', {
+      messageId: message.id
     });
 
     res.json({
@@ -465,10 +476,10 @@ router.get('/unread/count', authenticateToken, async (req, res) => {
   }
 });
 
-// Search messages in group
-router.get('/:groupId/search', authenticateToken, isGroupMember, async (req, res) => {
+// Search messages in conversation
+router.get('/:conversationId/search', authenticateToken, async (req, res) => {
   try {
-    const { groupId } = req.params;
+    const { conversationId } = req.params;
     const { q, page = 1, limit = 20 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
@@ -479,17 +490,43 @@ router.get('/:groupId/search', authenticateToken, isGroupMember, async (req, res
       });
     }
 
-    const searchRegex = new RegExp(q.trim(), 'i');
+    // Check if user is participant in this conversation
+    const conversation = await Conversation.findOne({
+      where: { id: conversationId },
+      include: [
+        {
+          model: ConversationParticipant,
+          as: 'participants',
+          where: { identity: req.user.id },
+          required: true
+        }
+      ]
+    });
 
-    const messages = await Message.find({
-      group: groupId,
-      content: searchRegex,
-      isDeleted: false
-    })
-    .populate('sender', 'username firstName lastName avatar')
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(parseInt(limit));
+    if (!conversation) {
+      return res.status(404).json({
+        error: 'Conversation not found or access denied',
+        message: 'The specified conversation does not exist or you are not a participant'
+      });
+    }
+
+    const messages = await Message.findAll({
+      where: {
+        conversationId: conversationId,
+        content: { [sequelize.Sequelize.Op.iLike]: `%${q.trim()}%` },
+        isDeleted: false
+      },
+      include: [
+        {
+          model: User,
+          as: 'sender',
+          attributes: ['username', 'firstName', 'lastName', 'avatar']
+        }
+      ],
+      order: [['createdAt', 'DESC']],
+      limit: parseInt(limit),
+      offset: skip
+    });
 
     res.json({
       messages: messages.map(msg => msg.getMessageInfo()),
