@@ -9,7 +9,8 @@ import {
   Message,
   Phone,
   Email,
-  Note
+  Note,
+  Delete
 } from '@mui/icons-material';
 import { 
   Box, 
@@ -45,6 +46,7 @@ const Contacts = () => {
   const [startingConversation, setStartingConversation] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [addContactType, setAddContactType] = useState('external');
+  const [deletingContact, setDeletingContact] = useState(null);
   const [newContact, setNewContact] = useState({
     firstName: '',
     lastName: '',
@@ -143,6 +145,20 @@ const Contacts = () => {
     } catch (error) {
       console.error('Error adding user as contact:', error);
       toast.error('Failed to add user as contact');
+    }
+  };
+
+  const handleDeleteContact = async (contact) => {
+    try {
+      setDeletingContact(contact.id);
+      await axios.delete(`/api/contacts/${contact.id}`);
+      toast.success('Contact deleted successfully');
+      fetchContacts();
+    } catch (error) {
+      console.error('Error deleting contact:', error);
+      toast.error('Failed to delete contact');
+    } finally {
+      setDeletingContact(null);
     }
   };
 
@@ -276,21 +292,39 @@ const Contacts = () => {
                       </Box>
                     }
                   />
-                  <Button
-                    variant="contained"
-                    size="small"
-                    startIcon={<Message />}
-                    onClick={() => handleStartConversation(contact)}
-                    disabled={startingConversation}
-                    sx={{ 
-                      minWidth: 'auto',
-                      px: 2,
-                      py: 0.5,
-                      fontSize: '0.75rem'
-                    }}
-                  >
-                    {startingConversation ? 'Starting...' : 'Message'}
-                  </Button>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<Message />}
+                      onClick={() => handleStartConversation(contact)}
+                      disabled={startingConversation}
+                      sx={{ 
+                        minWidth: 'auto',
+                        px: 2,
+                        py: 0.5,
+                        fontSize: '0.75rem'
+                      }}
+                    >
+                      {startingConversation ? 'Starting...' : 'Message'}
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      size="small"
+                      startIcon={<Delete />}
+                      onClick={() => handleDeleteContact(contact)}
+                      disabled={deletingContact === contact.id}
+                      sx={{ 
+                        minWidth: 'auto',
+                        px: 2,
+                        py: 0.5,
+                        fontSize: '0.75rem'
+                      }}
+                    >
+                      {deletingContact === contact.id ? 'Deleting...' : 'Delete'}
+                    </Button>
+                  </Box>
                 </ListItem>
               ))}
             </List>

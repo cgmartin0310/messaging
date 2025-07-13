@@ -8,7 +8,8 @@ import {
   Message,
   Search,
   Add,
-  Phone
+  Phone,
+  Delete
 } from '@mui/icons-material';
 import { 
   Box, 
@@ -33,6 +34,7 @@ const Conversations = () => {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [deletingConversation, setDeletingConversation] = useState(null);
 
   useEffect(() => {
     fetchConversations();
@@ -112,6 +114,23 @@ const Conversations = () => {
     }
     
     return conversation.name ? conversation.name.charAt(0).toUpperCase() : 'C';
+  };
+
+  const handleDeleteConversation = async (conversation, e) => {
+    e.preventDefault(); // Prevent navigation
+    e.stopPropagation(); // Prevent event bubbling
+    
+    try {
+      setDeletingConversation(conversation.id);
+      await axios.delete(`/api/conversations/${conversation.id}`);
+      toast.success('Conversation deleted successfully');
+      fetchConversations();
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      toast.error('Failed to delete conversation');
+    } finally {
+      setDeletingConversation(null);
+    }
   };
 
   const filteredConversations = conversations.filter(conversation => {
@@ -233,9 +252,27 @@ const Conversations = () => {
                       </Box>
                     }
                   />
-                  {conversation.unreadCount > 0 && (
-                    <Badge badgeContent={conversation.unreadCount} color="error" />
-                  )}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {conversation.unreadCount > 0 && (
+                      <Badge badgeContent={conversation.unreadCount} color="error" />
+                    )}
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      size="small"
+                      startIcon={<Delete />}
+                      onClick={(e) => handleDeleteConversation(conversation, e)}
+                      disabled={deletingConversation === conversation.id}
+                      sx={{ 
+                        minWidth: 'auto',
+                        px: 1,
+                        py: 0.5,
+                        fontSize: '0.75rem'
+                      }}
+                    >
+                      {deletingConversation === conversation.id ? 'Deleting...' : 'Delete'}
+                    </Button>
+                  </Box>
                 </ListItem>
               ))}
             </List>

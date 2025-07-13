@@ -316,6 +316,46 @@ router.get('/:conversationId', authenticateToken, async (req, res) => {
   }
 });
 
+// Delete a conversation (soft delete)
+router.delete('/:conversationId', authenticateToken, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    
+    // Check if user is participant in this conversation
+    const conversation = await Conversation.findOne({
+      where: { id: conversationId },
+      include: [
+        {
+          model: ConversationParticipant,
+          as: 'participants',
+          where: { identity: req.user.id }
+        }
+      ]
+    });
+    
+    if (!conversation) {
+      return res.status(404).json({ error: 'Conversation not found or access denied' });
+    }
+    
+    // Soft delete the conversation
+    await conversation.update({ isActive: false });
+    
+    // Also soft delete all participants
+    await ConversationParticipant.update(
+      { isActive: false },
+      { where: { ConversationId: conversationId } }
+    );
+    
+    res.json({
+      success: true,
+      message: 'Conversation deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting conversation:', error);
+    res.status(500).json({ error: 'Failed to delete conversation' });
+  }
+});
+
 // Handle incoming webhook from Twilio
 router.post('/webhook', async (req, res) => {
   try {
