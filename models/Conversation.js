@@ -284,7 +284,7 @@ Conversation.createDirectConversation = async function(userId, recipientPhoneNum
   }
   
   // Add SMS recipient as participant
-  const smsParticipant = await twilioService.addParticipant(
+  const smsParticipant = await twilioService.addSMSParticipant(
     twilioResult.conversationId,
     formattedPhoneNumber,
     {

@@ -57,7 +57,7 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
-        <Route path="/chat/:groupId" element={
+        <Route path="/chat/:conversationId" element={
           <ProtectedRoute>
             <Chat />
           </ProtectedRoute>

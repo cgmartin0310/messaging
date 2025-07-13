@@ -108,6 +108,58 @@ class TwilioService {
     }
   }
 
+  // Add SMS participant to conversation (for external SMS recipients)
+  async addSMSParticipant(conversationId, phoneNumber, attributes = {}) {
+    if (!this.conversationsClient) {
+      console.log('Mock: Adding SMS participant', phoneNumber, 'to conversation', conversationId);
+      return { success: true, participantId: `mock-sms-participant-${phoneNumber}` };
+    }
+
+    try {
+      // Check if SMS participant already exists
+      try {
+        const existingParticipant = await this.conversationsClient
+          .conversations(conversationId)
+          .participants
+          .list({ identity: phoneNumber });
+        
+        if (existingParticipant.length > 0) {
+          return {
+            success: true,
+            participantId: existingParticipant[0].sid,
+            participant: existingParticipant[0]
+          };
+        }
+      } catch (error) {
+        // Participant doesn't exist, continue to create
+      }
+
+      // Create SMS participant using messaging binding
+      const participant = await this.conversationsClient
+        .conversations(conversationId)
+        .participants
+        .create({
+          messagingBinding: {
+            address: phoneNumber,
+            proxyAddress: this.phoneNumber
+          },
+          attributes: JSON.stringify(attributes)
+        });
+
+      return {
+        success: true,
+        participantId: participant.sid,
+        participant: participant
+      };
+    } catch (error) {
+      console.error('Twilio add SMS participant error:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
   // Send message to conversation
   async sendMessage(conversationId, author, body, attributes = {}) {
     if (!this.conversationsClient) {

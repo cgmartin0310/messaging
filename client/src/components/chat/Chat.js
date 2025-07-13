@@ -24,31 +24,31 @@ import {
 import LoadingSpinner from '../common/LoadingSpinner';
 
 const Chat = () => {
-  const { groupId } = useParams();
+  const { conversationId } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
-  const [group, setGroup] = useState(null);
+  const [conversation, setConversation] = useState(null);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    if (groupId) {
+    if (conversationId) {
       fetchConversationAndMessages();
     }
-  }, [groupId]);
+  }, [conversationId]);
 
   const fetchConversationAndMessages = async () => {
     try {
       setLoading(true);
       const [conversationRes, messagesRes] = await Promise.all([
-        axios.get(`/api/conversations/${groupId}`),
-        axios.get(`/api/conversations/${groupId}/messages`)
+        axios.get(`/api/conversations/${conversationId}`),
+        axios.get(`/api/conversations/${conversationId}/messages`)
       ]);
 
-      setGroup(conversationRes.data);
+      setConversation(conversationRes.data);
       setMessages(messagesRes.data.reverse()); // Show newest first
     } catch (error) {
       console.error('Error fetching chat data:', error);
@@ -73,7 +73,7 @@ const Chat = () => {
 
     try {
       setSending(true);
-      const response = await axios.post(`/api/conversations/${groupId}/messages`, {
+      const response = await axios.post(`/api/conversations/${conversationId}/messages`, {
         content: newMessage.trim()
       });
 
@@ -116,10 +116,10 @@ const Chat = () => {
           </IconButton>
           <Box sx={{ flexGrow: 1 }}>
             <Typography variant="h6" component="div">
-              {group?.name}
+              {conversation?.name}
             </Typography>
             <Typography variant="body2" color="inherit" sx={{ opacity: 0.8 }}>
-              {group?.memberCount} members
+              {conversation?.participants?.length || 0} participants
             </Typography>
           </Box>
           <IconButton color="inherit">
@@ -159,38 +159,38 @@ const Chat = () => {
               <List sx={{ p: 0 }}>
                 {messages.map((message) => (
                   <ListItem
-                    key={message._id}
+                    key={message.id}
                     sx={{
                       flexDirection: 'column',
-                      alignItems: message.sender._id === user._id ? 'flex-end' : 'flex-start',
+                      alignItems: message.sender?.id === user.id ? 'flex-end' : 'flex-start',
                       p: 0,
                       mb: 1
                     }}
                   >
-                    <Paper
-                      elevation={1}
-                      sx={{
-                        p: 2,
-                        maxWidth: '70%',
-                        bgcolor: message.sender._id === user._id ? 'primary.main' : 'grey.100',
-                        color: message.sender._id === user._id ? 'white' : 'text.primary',
-                        borderRadius: 2
-                      }}
-                    >
+                                          <Paper
+                        elevation={1}
+                        sx={{
+                          p: 2,
+                          maxWidth: '70%',
+                          bgcolor: message.sender?.id === user.id ? 'primary.main' : 'grey.100',
+                          color: message.sender?.id === user.id ? 'white' : 'text.primary',
+                          borderRadius: 2
+                        }}
+                      >
                       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                         <Avatar
                           sx={{ 
                             width: 24, 
                             height: 24, 
                             mr: 1,
-                            bgcolor: message.sender._id === user._id ? 'primary.dark' : 'grey.300',
-                            color: message.sender._id === user._id ? 'white' : 'text.primary'
+                            bgcolor: message.sender?.id === user.id ? 'primary.dark' : 'grey.300',
+                            color: message.sender?.id === user.id ? 'white' : 'text.primary'
                           }}
                         >
-                          {message.sender.firstName?.charAt(0)?.toUpperCase()}
+                          {message.sender?.firstName?.charAt(0)?.toUpperCase()}
                         </Avatar>
                         <Typography variant="caption" sx={{ fontWeight: 500 }}>
-                          {message.sender.firstName} {message.sender.lastName}
+                          {message.sender?.firstName} {message.sender?.lastName}
                         </Typography>
                         <Typography variant="caption" sx={{ ml: 1, opacity: 0.7 }}>
                           {formatTime(message.createdAt)}
