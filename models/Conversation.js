@@ -96,13 +96,13 @@ const ConversationParticipant = sequelize.define('ConversationParticipant', {
 
 // Static methods
 Conversation.createUserToUserConversation = async function(userId, recipientId, recipientName = null) {
-  const twilio = require('../services/twilioService');
+  const twilioService = require('../services/twilioService');
   
   // Create unique conversation name
   const conversationName = `direct_${userId}_${recipientId}`;
   
   // Create Twilio conversation
-  const twilioResult = await twilio.createOrGetConversation(
+  const twilioResult = await twilioService.createOrGetConversation(
     conversationName,
     `Direct: ${recipientName || 'User'}`
   );
@@ -124,7 +124,7 @@ Conversation.createUserToUserConversation = async function(userId, recipientId, 
     throw new Error('User not found');
   }
   
-  const userParticipant = await twilio.addParticipant(
+  const userParticipant = await twilioService.addParticipant(
     twilioResult.conversationId,
     user.id,
     {
@@ -150,7 +150,7 @@ Conversation.createUserToUserConversation = async function(userId, recipientId, 
     throw new Error('Recipient user not found');
   }
   
-  const recipientParticipant = await twilio.addParticipant(
+  const recipientParticipant = await twilioService.addParticipant(
     twilioResult.conversationId,
     recipient.id,
     {
@@ -174,13 +174,13 @@ Conversation.createUserToUserConversation = async function(userId, recipientId, 
 };
 
 Conversation.createDirectConversation = async function(userId, recipientPhoneNumber, recipientName = null) {
-  const twilio = require('../services/twilioService');
+  const twilioService = require('../services/twilioService');
   
   // Create unique conversation name
   const conversationName = `direct_${userId}_${recipientPhoneNumber.replace(/[^0-9]/g, '')}`;
   
   // Create Twilio conversation
-  const twilioResult = await twilio.createOrGetConversation(
+  const twilioResult = await twilioService.createOrGetConversation(
     conversationName,
     `Direct: ${recipientName || recipientPhoneNumber}`
   );
@@ -223,7 +223,7 @@ Conversation.createDirectConversation = async function(userId, recipientPhoneNum
   }
   
   // Add SMS recipient as participant
-  const smsParticipant = await twilio.addParticipant(
+  const smsParticipant = await twilioService.addParticipant(
     twilioResult.conversationId,
     recipientPhoneNumber,
     {
@@ -263,12 +263,12 @@ Conversation.getUserConversations = async function(userId) {
 
 // Instance methods
 Conversation.prototype.addMessage = async function(senderId, content, messageType = 'text') {
-  const Message = require('./Message');
-  const twilio = require('../services/twilioService');
+  const { Message } = require('./Message');
+  const twilioService = require('../services/twilioService');
   
   // Send message to Twilio conversation
   const sender = await User.findByPk(senderId);
-  const twilioResult = await twilio.sendMessage(
+  const twilioResult = await twilioService.sendMessage(
     this.twilioConversationId,
     sender.id,
     content,
@@ -299,7 +299,7 @@ Conversation.prototype.addMessage = async function(senderId, content, messageTyp
 };
 
 Conversation.prototype.getMessages = async function(limit = 50, offset = 0) {
-  const Message = require('./Message');
+  const { Message } = require('./Message');
   
   return await Message.findAll({
     where: {
