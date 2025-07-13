@@ -96,8 +96,7 @@ const ConversationParticipant = sequelize.define('ConversationParticipant', {
 
 // Static methods
 Conversation.createUserToUserConversation = async function(userId, recipientId, recipientName = null) {
-  const twilioService = require('../services/twilioService');
-  const twilio = new twilioService();
+  const twilio = require('../services/twilioService');
   
   // Create unique conversation name
   const conversationName = `direct_${userId}_${recipientId}`;
@@ -175,8 +174,7 @@ Conversation.createUserToUserConversation = async function(userId, recipientId, 
 };
 
 Conversation.createDirectConversation = async function(userId, recipientPhoneNumber, recipientName = null) {
-  const twilioService = require('../services/twilioService');
-  const twilio = new twilioService();
+  const twilio = require('../services/twilioService');
   
   // Create unique conversation name
   const conversationName = `direct_${userId}_${recipientPhoneNumber.replace(/[^0-9]/g, '')}`;
@@ -266,8 +264,7 @@ Conversation.getUserConversations = async function(userId) {
 // Instance methods
 Conversation.prototype.addMessage = async function(senderId, content, messageType = 'text') {
   const Message = require('./Message');
-  const twilioService = require('../services/twilioService');
-  const twilio = new twilioService();
+  const twilio = require('../services/twilioService');
   
   // Send message to Twilio conversation
   const sender = await User.findByPk(senderId);
