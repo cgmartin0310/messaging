@@ -1,188 +1,198 @@
 const express = require('express');
-const { authenticateToken } = require('../middleware/auth');
-const { User, Contact } = require('../models');
-const sequelize = require('../config/database');
-
 const router = express.Router();
+const { authenticateToken } = require('../middleware/auth');
+const { User } = require('../models');
+const virtualPhoneService = require('../services/virtualPhoneService');
 
-// Check if database is connected
-const isDatabaseConnected = async () => {
-  try {
-    await sequelize.authenticate();
-    return true;
-  } catch (error) {
-    return false;
-  }
-};
-
-// Get user profile with contacts
+// Get current user profile
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
-    // Check if database is connected
-    if (!(await isDatabaseConnected())) {
-      return res.status(503).json({
-        error: 'Database unavailable',
-        message: 'Database is not connected. Please try again later or contact support.'
-      });
-    }
-
-    const userId = req.user.id;
-
-    // Get user's contacts
-    const userContacts = await Contact.findAll({
-      where: { isActive: true },
-      include: [
-        {
-          model: User,
-          as: 'user',
-          attributes: ['id', 'username', 'firstName', 'lastName', 'avatar', 'lastSeen']
-        }
-      ]
+    const user = await User.findByPk(req.user.id, {
+      attributes: { exclude: ['password'] }
     });
-
-    // Get all users as potential contacts (excluding current user)
-    const potentialContacts = await User.findAll({
-      where: {
-        id: { [sequelize.Sequelize.Op.ne]: userId },
-        isActive: true
-      },
-      attributes: ['id', 'username', 'firstName', 'lastName', 'avatar', 'lastSeen']
-    });
-
-    // Format contacts for frontend
-    const formattedContacts = userContacts.map(contact => ({
-      id: contact.id,
-      contactType: contact.contactType,
-      userId: contact.userId,
-      phoneNumber: contact.phoneNumber,
-      firstName: contact.firstName,
-      lastName: contact.lastName,
-      displayName: contact.getDisplayName(),
-      avatar: contact.avatar,
-      email: contact.email,
-      notes: contact.notes,
-      createdAt: contact.createdAt
-    }));
-
-    // Format potential contacts for frontend
-    const formattedPotentialContacts = potentialContacts.map(contact => ({
-      id: contact.id,
-      username: contact.username,
-      firstName: contact.firstName,
-      lastName: contact.lastName,
-      displayName: `${contact.firstName} ${contact.lastName}`,
-      avatar: contact.avatar,
-      lastSeen: contact.lastSeen
-    }));
-
+    
     res.json({
-      user: req.user.getProfile(),
-      contacts: formattedContacts,
-      potentialContacts: formattedPotentialContacts
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phoneNumber: user.phoneNumber,
+        virtualPhoneNumber: user.virtualPhoneNumber,
+        avatar: user.avatar,
+        isActive: user.isActive,
+        lastSeen: user.lastSeen,
+        createdAt: user.createdAt
+      }
     });
   } catch (error) {
-    console.error('Profile error:', error);
-    
-    // Check if it's a database connection error
-    if (error.name === 'SequelizeConnectionError' || error.name === 'SequelizeHostNotFoundError') {
-      return res.status(503).json({
-        error: 'Database unavailable',
-        message: 'Database is not connected. Please try again later or contact support.'
-      });
-    }
-    
-    res.status(500).json({
-      error: 'Profile retrieval failed',
-      message: 'An error occurred while retrieving profile'
-    });
+    console.error('Get profile error:', error);
+    res.status(500).json({ error: 'Failed to get profile' });
   }
 });
 
 // Update user profile
 router.put('/profile', authenticateToken, async (req, res) => {
   try {
-    // Check if database is connected
-    if (!(await isDatabaseConnected())) {
-      return res.status(503).json({
-        error: 'Database unavailable',
-        message: 'Database is not connected. Please try again later or contact support.'
-      });
-    }
-
-    const userId = req.user.id;
-    const { firstName, lastName, avatar } = req.body;
-
-    const user = await User.findByPk(userId);
-    if (!user) {
-      return res.status(404).json({
-        error: 'User not found',
-        message: 'User does not exist'
-      });
-    }
-
-    // Update user fields
-    if (firstName) user.firstName = firstName;
-    if (lastName) user.lastName = lastName;
-    if (avatar !== undefined) user.avatar = avatar;
-
-    await user.save();
-
+    const { firstName, lastName, phoneNumber, avatar } = req.body;
+    
+    const user = await User.findByPk(req.user.id);
+    await user.update({
+      firstName: firstName || user.firstName,
+      lastName: lastName || user.lastName,
+      phoneNumber: phoneNumber || user.phoneNumber,
+      avatar: avatar || user.avatar
+    });
+    
     res.json({
       message: 'Profile updated successfully',
-      user: user.getProfile()
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phoneNumber: user.phoneNumber,
+        virtualPhoneNumber: user.virtualPhoneNumber,
+        avatar: user.avatar
+      }
     });
   } catch (error) {
-    console.error('Profile update error:', error);
-    
-    // Check if it's a database connection error
-    if (error.name === 'SequelizeConnectionError' || error.name === 'SequelizeHostNotFoundError') {
-      return res.status(503).json({
-        error: 'Database unavailable',
-        message: 'Database is not connected. Please try again later or contact support.'
-      });
-    }
-    
-    res.status(500).json({
-      error: 'Profile update failed',
-      message: 'An error occurred while updating profile'
-    });
+    console.error('Update profile error:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
   }
 });
 
-// Get all users (for admin purposes)
-router.get('/', authenticateToken, async (req, res) => {
+// Assign virtual phone number to current user
+router.post('/virtual-number', authenticateToken, async (req, res) => {
   try {
-    // Check if database is connected
-    if (!(await isDatabaseConnected())) {
-      return res.status(503).json({
-        error: 'Database unavailable',
-        message: 'Database is not connected. Please try again later or contact support.'
+    const result = await virtualPhoneService.assignVirtualNumber(req.user.id);
+    
+    if (result.success) {
+      res.json({
+        message: result.message,
+        virtualNumber: result.virtualNumber
+      });
+    } else {
+      res.status(400).json({
+        error: 'Failed to assign virtual number',
+        message: result.error
       });
     }
+  } catch (error) {
+    console.error('Assign virtual number error:', error);
+    res.status(500).json({ error: 'Failed to assign virtual number' });
+  }
+});
 
-    const users = await User.findAll({
-      where: { isActive: true },
-      attributes: ['id', 'username', 'firstName', 'lastName', 'avatar', 'lastSeen', 'createdAt']
-    });
+// Remove virtual phone number from current user
+router.delete('/virtual-number', authenticateToken, async (req, res) => {
+  try {
+    const result = await virtualPhoneService.removeVirtualNumber(req.user.id);
+    
+    if (result.success) {
+      res.json({
+        message: result.message
+      });
+    } else {
+      res.status(400).json({
+        error: 'Failed to remove virtual number',
+        message: result.error
+      });
+    }
+  } catch (error) {
+    console.error('Remove virtual number error:', error);
+    res.status(500).json({ error: 'Failed to remove virtual number' });
+  }
+});
 
+// Get all users with virtual numbers
+router.get('/virtual-numbers', authenticateToken, async (req, res) => {
+  try {
+    const users = await virtualPhoneService.getUsersWithVirtualNumbers();
+    
     res.json({
-      users: users.map(user => user.getProfile())
+      users: users.map(user => ({
+        id: user.id,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        virtualPhoneNumber: user.virtualPhoneNumber
+      }))
     });
   } catch (error) {
-    console.error('Get users error:', error);
+    console.error('Get virtual numbers error:', error);
+    res.status(500).json({ error: 'Failed to get virtual numbers' });
+  }
+});
+
+// Send SMS to another internal user
+router.post('/sms/internal/:userId', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { message } = req.body;
     
-    // Check if it's a database connection error
-    if (error.name === 'SequelizeConnectionError' || error.name === 'SequelizeHostNotFoundError') {
-      return res.status(503).json({
-        error: 'Database unavailable',
-        message: 'Database is not connected. Please try again later or contact support.'
-      });
+    if (!message || message.trim().length === 0) {
+      return res.status(400).json({ error: 'Message is required' });
     }
     
-    res.status(500).json({
-      error: 'Users retrieval failed',
-      message: 'An error occurred while retrieving users'
-    });
+    const result = await virtualPhoneService.sendInternalSMS(
+      req.user.id,
+      userId,
+      message.trim()
+    );
+    
+    if (result.success) {
+      res.json({
+        message: 'SMS sent successfully',
+        messageId: result.messageId,
+        from: result.from,
+        to: result.to
+      });
+    } else {
+      res.status(400).json({
+        error: 'Failed to send SMS',
+        message: result.error
+      });
+    }
+  } catch (error) {
+    console.error('Send internal SMS error:', error);
+    res.status(500).json({ error: 'Failed to send SMS' });
+  }
+});
+
+// Send SMS to external phone number
+router.post('/sms/external', authenticateToken, async (req, res) => {
+  try {
+    const { phoneNumber, message } = req.body;
+    
+    if (!phoneNumber || !message) {
+      return res.status(400).json({ error: 'Phone number and message are required' });
+    }
+    
+    const result = await virtualPhoneService.sendExternalSMS(
+      req.user.id,
+      phoneNumber,
+      message.trim()
+    );
+    
+    if (result.success) {
+      res.json({
+        message: 'SMS sent successfully',
+        messageId: result.messageId,
+        from: result.from,
+        to: result.to
+      });
+    } else {
+      res.status(400).json({
+        error: 'Failed to send SMS',
+        message: result.error
+      });
+    }
+  } catch (error) {
+    console.error('Send external SMS error:', error);
+    res.status(500).json({ error: 'Failed to send SMS' });
   }
 });
 

@@ -10,7 +10,12 @@
     "build": "cd client && npm run build",
     "install-all": "npm install && cd client && npm install",
     "test-db": "node test-db.js",
-    "debug-db": "node debug-db.js"
+    "debug-db": "node debug-db.js",
+    "test-sms": "node test-sms.js",
+    "test-sms-direct": "node test-sms-direct.js",
+    "test-conversations": "node test-conversations.js",
+    "test-virtual-phones": "node test-virtual-phones.js",
+    "test-conversation-participants": "node test-conversation-participants.js"
   },
   "dependencies": {
     "@twilio/conversations": "^2.6.2",

@@ -8,26 +8,29 @@ const Conversation = sequelize.define('Conversation', {
     defaultValue: DataTypes.UUIDV4,
     primaryKey: true
   },
-  twilioConversationId: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    unique: true
-  },
-  conversationType: {
-    type: DataTypes.ENUM('direct', 'group'),
-    defaultValue: 'direct'
-  },
   name: {
-    type: DataTypes.STRING,
-    allowNull: true
+    type: DataTypes.STRING(100),
+    allowNull: false
   },
   description: {
     type: DataTypes.TEXT,
     allowNull: true
   },
+  conversationType: {
+    type: DataTypes.ENUM('direct', 'group', 'sms'),
+    defaultValue: 'direct'
+  },
   isActive: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
+  },
+  isPrivate: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  },
+  maxParticipants: {
+    type: DataTypes.INTEGER,
+    defaultValue: 50
   },
   lastMessageAt: {
     type: DataTypes.DATE,
@@ -46,32 +49,41 @@ const Conversation = sequelize.define('Conversation', {
   timestamps: true
 });
 
-// Conversation Participant model for omni-channel participants
 const ConversationParticipant = sequelize.define('ConversationParticipant', {
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
     primaryKey: true
   },
-  participantType: {
-    type: DataTypes.ENUM('user', 'sms', 'whatsapp'),
-    defaultValue: 'user'
+  ConversationId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: 'conversations',
+      key: 'id'
+    }
   },
-  twilioParticipantId: {
-    type: DataTypes.STRING,
-    allowNull: true
+  participantType: {
+    type: DataTypes.ENUM('user', 'sms', 'virtual'),
+    defaultValue: 'user'
   },
   identity: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: false,
+    comment: 'User ID for internal users, phone number for SMS participants, virtual number for virtual participants'
   },
   phoneNumber: {
-    type: DataTypes.STRING,
-    allowNull: true
+    type: DataTypes.STRING(20),
+    allowNull: true,
+    comment: 'Phone number for SMS participants or virtual number for internal users'
   },
   displayName: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(100),
     allowNull: true
+  },
+  role: {
+    type: DataTypes.ENUM('admin', 'member'),
+    defaultValue: 'member'
   },
   isActive: {
     type: DataTypes.BOOLEAN,
@@ -80,6 +92,10 @@ const ConversationParticipant = sequelize.define('ConversationParticipant', {
   joinedAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
+  },
+  leftAt: {
+    type: DataTypes.DATE,
+    allowNull: true
   },
   createdAt: {
     type: DataTypes.DATE,
@@ -95,263 +111,290 @@ const ConversationParticipant = sequelize.define('ConversationParticipant', {
 });
 
 // Static methods
-Conversation.createUserToUserConversation = async function(userId, recipientId, recipientName = null) {
+Conversation.createDirectConversation = async function(userId, recipientId, recipientName = null) {
   const twilioService = require('../services/twilioService');
+  const virtualPhoneService = require('../services/virtualPhoneService');
   
-  // Create unique conversation name
-  const conversationName = `direct_${userId}_${recipientId}`;
+  // Get both users
+  const [user, recipient] = await Promise.all([
+    User.findByPk(userId),
+    User.findByPk(recipientId)
+  ]);
   
-  // Create Twilio conversation
-  const twilioResult = await twilioService.createOrGetConversation(
-    conversationName,
-    `Direct: ${recipientName || 'User'}`
-  );
-  
-  if (!twilioResult.success) {
-    throw new Error(`Failed to create Twilio conversation: ${twilioResult.error}`);
+  if (!user || !recipient) {
+    throw new Error('One or both users not found');
   }
   
-  // Check if conversation already exists in database
-  let conversation = await this.findOne({
-    where: { twilioConversationId: twilioResult.conversationId }
+  // Ensure both users have virtual numbers
+  const [userVirtualResult, recipientVirtualResult] = await Promise.all([
+    virtualPhoneService.assignVirtualNumber(userId),
+    virtualPhoneService.assignVirtualNumber(recipientId)
+  ]);
+  
+  if (!userVirtualResult.success || !recipientVirtualResult.success) {
+    throw new Error('Failed to assign virtual numbers to users');
+  }
+  
+  // Create conversation
+  const conversation = await this.create({
+    name: `Direct: ${user.firstName} & ${recipient.firstName}`,
+    conversationType: 'direct',
+    isActive: true
   });
   
-  if (!conversation) {
-    // Create conversation in database
-    conversation = await this.create({
-      twilioConversationId: twilioResult.conversationId,
-      conversationType: 'direct',
-      name: recipientName || 'Direct Chat'
-    });
-  }
-  
-  // Add current user as participant
-  const user = await User.findByPk(userId);
-  if (!user) {
-    throw new Error('User not found');
-  }
-  
-  const userParticipant = await twilioService.addParticipant(
-    twilioResult.conversationId,
-    user.id,
-    {
+  // Add participants
+  await Promise.all([
+    ConversationParticipant.create({
+      ConversationId: conversation.id,
+      participantType: 'virtual',
+      identity: user.id,
+      phoneNumber: userVirtualResult.virtualNumber,
       displayName: `${user.firstName} ${user.lastName}`,
-      phoneNumber: user.phoneNumber
-    }
-  );
-  
-  if (userParticipant.success) {
-    // Check if participant already exists
-    const existingUserParticipant = await ConversationParticipant.findOne({
-      where: { 
-        ConversationId: conversation.id,
-        identity: user.id
-      }
-    });
-    
-    if (!existingUserParticipant) {
-      await ConversationParticipant.create({
-        ConversationId: conversation.id,
-        participantType: 'user',
-        twilioParticipantId: userParticipant.participantId,
-        identity: user.id,
-        phoneNumber: user.phoneNumber,
-        displayName: `${user.firstName} ${user.lastName}`
-      });
-    }
-  }
-  
-  // Add recipient user as participant
-  const recipient = await User.findByPk(recipientId);
-  if (!recipient) {
-    throw new Error('Recipient user not found');
-  }
-  
-  const recipientParticipant = await twilioService.addParticipant(
-    twilioResult.conversationId,
-    recipient.id,
-    {
+      role: 'member'
+    }),
+    ConversationParticipant.create({
+      ConversationId: conversation.id,
+      participantType: 'virtual',
+      identity: recipient.id,
+      phoneNumber: recipientVirtualResult.virtualNumber,
       displayName: `${recipient.firstName} ${recipient.lastName}`,
-      phoneNumber: recipient.phoneNumber
-    }
-  );
-  
-  if (recipientParticipant.success) {
-    // Check if participant already exists
-    const existingRecipientParticipant = await ConversationParticipant.findOne({
-      where: { 
-        ConversationId: conversation.id,
-        identity: recipient.id
-      }
-    });
-    
-    if (!existingRecipientParticipant) {
-      await ConversationParticipant.create({
-        ConversationId: conversation.id,
-        participantType: 'user',
-        twilioParticipantId: recipientParticipant.participantId,
-        identity: recipient.id,
-        phoneNumber: recipient.phoneNumber,
-        displayName: `${recipient.firstName} ${recipient.lastName}`
-      });
-    }
-  }
+      role: 'member'
+    })
+  ]);
   
   return conversation;
 };
 
-Conversation.createDirectConversation = async function(userId, recipientPhoneNumber, recipientName = null) {
-  const twilioService = require('../services/twilioService');
+Conversation.createSMSConversation = async function(userId, externalPhoneNumber, recipientName = null) {
+  const virtualPhoneService = require('../services/virtualPhoneService');
   
-  // Format phone number to E.164 format
-  function formatPhoneNumber(phoneNumber) {
-    let cleaned = phoneNumber.replace(/\D/g, '');
-    if (cleaned.length === 10) {
-      return `+1${cleaned}`;
-    }
-    if (cleaned.length === 11 && cleaned.startsWith('1')) {
-      return `+${cleaned}`;
-    }
-    if (phoneNumber.startsWith('+')) {
-      return phoneNumber;
-    }
-    return `+1${cleaned}`;
-  }
-  
-  const formattedPhoneNumber = formatPhoneNumber(recipientPhoneNumber);
-  
-  // Create unique conversation name
-  const conversationName = `direct_${userId}_${formattedPhoneNumber.replace(/[^0-9]/g, '')}`;
-  
-  // Create Twilio conversation
-  const twilioResult = await twilioService.createOrGetConversation(
-    conversationName,
-    `Direct: ${recipientName || formattedPhoneNumber}`
-  );
-  
-  if (!twilioResult.success) {
-    throw new Error(`Failed to create Twilio conversation: ${twilioResult.error}`);
-  }
-  
-  // Check if conversation already exists in database
-  let conversation = await this.findOne({
-    where: { twilioConversationId: twilioResult.conversationId }
-  });
-  
-  if (!conversation) {
-    // Create conversation in database
-    conversation = await this.create({
-      twilioConversationId: twilioResult.conversationId,
-      conversationType: 'direct',
-      name: recipientName || formattedPhoneNumber
-    });
-  }
-  
-  // Add Goldie app user as participant
+  // Get user
   const user = await User.findByPk(userId);
   if (!user) {
     throw new Error('User not found');
   }
   
-  const userParticipant = await twilioService.addParticipant(
-    twilioResult.conversationId,
-    user.id,
-    {
+  // Ensure user has virtual number
+  const userVirtualResult = await virtualPhoneService.assignVirtualNumber(userId);
+  if (!userVirtualResult.success) {
+    throw new Error('Failed to assign virtual number to user');
+  }
+  
+  // Create conversation
+  const conversation = await this.create({
+    name: `SMS: ${user.firstName} & ${recipientName || externalPhoneNumber}`,
+    conversationType: 'sms',
+    isActive: true
+  });
+  
+  // Add participants
+  await Promise.all([
+    ConversationParticipant.create({
+      ConversationId: conversation.id,
+      participantType: 'virtual',
+      identity: user.id,
+      phoneNumber: userVirtualResult.virtualNumber,
       displayName: `${user.firstName} ${user.lastName}`,
-      phoneNumber: user.phoneNumber
-    }
-  );
-  
-  if (userParticipant.success) {
-    // Check if participant already exists
-    const existingUserParticipant = await ConversationParticipant.findOne({
-      where: { 
-        ConversationId: conversation.id,
-        identity: user.id
-      }
-    });
-    
-    if (!existingUserParticipant) {
-      await ConversationParticipant.create({
-        ConversationId: conversation.id,
-        participantType: 'user',
-        twilioParticipantId: userParticipant.participantId,
-        identity: user.id,
-        phoneNumber: user.phoneNumber,
-        displayName: `${user.firstName} ${user.lastName}`
-      });
-    }
-  }
-  
-  // Add SMS recipient as participant
-  const smsParticipant = await twilioService.addSMSParticipant(
-    twilioResult.conversationId,
-    formattedPhoneNumber,
-    {
-      displayName: recipientName || formattedPhoneNumber,
-      phoneNumber: formattedPhoneNumber
-    }
-  );
-  
-  if (smsParticipant.success) {
-    // Check if participant already exists
-    const existingSmsParticipant = await ConversationParticipant.findOne({
-      where: { 
-        ConversationId: conversation.id,
-        identity: formattedPhoneNumber
-      }
-    });
-    
-    if (!existingSmsParticipant) {
-      await ConversationParticipant.create({
-        ConversationId: conversation.id,
-        participantType: 'sms',
-        twilioParticipantId: smsParticipant.participantId,
-        identity: formattedPhoneNumber,
-        phoneNumber: formattedPhoneNumber,
-        displayName: recipientName || formattedPhoneNumber
-      });
-    }
-  }
+      role: 'member'
+    }),
+    ConversationParticipant.create({
+      ConversationId: conversation.id,
+      participantType: 'sms',
+      identity: externalPhoneNumber,
+      phoneNumber: externalPhoneNumber,
+      displayName: recipientName || externalPhoneNumber,
+      role: 'member'
+    })
+  ]);
   
   return conversation;
 };
 
-Conversation.getUserConversations = async function(userId) {
-  return await this.findAll({
-    include: [
-      {
-        model: ConversationParticipant,
-        as: 'participants',
-        where: { identity: userId },
-        required: true
-      }
-    ],
-    where: { isActive: true },
-    order: [['lastMessageAt', 'DESC']]
+Conversation.createGroupConversation = async function(creatorId, name, description = null, participants = []) {
+  const virtualPhoneService = require('../services/virtualPhoneService');
+  
+  // Get creator
+  const creator = await User.findByPk(creatorId);
+  if (!creator) {
+    throw new Error('Creator not found');
+  }
+  
+  // Ensure creator has virtual number
+  const creatorVirtualResult = await virtualPhoneService.assignVirtualNumber(creatorId);
+  if (!creatorVirtualResult.success) {
+    throw new Error('Failed to assign virtual number to creator');
+  }
+  
+  // Create conversation
+  const conversation = await this.create({
+    name: name,
+    description: description,
+    conversationType: 'group',
+    isActive: true
   });
+  
+  // Add creator as admin
+  await ConversationParticipant.create({
+    ConversationId: conversation.id,
+    participantType: 'virtual',
+    identity: creator.id,
+    phoneNumber: creatorVirtualResult.virtualNumber,
+    displayName: `${creator.firstName} ${creator.lastName}`,
+    role: 'admin'
+  });
+  
+  // Add other participants
+  for (const participantId of participants) {
+    if (participantId !== creatorId) {
+      const participant = await User.findByPk(participantId);
+      if (participant) {
+        const participantVirtualResult = await virtualPhoneService.assignVirtualNumber(participantId);
+        if (participantVirtualResult.success) {
+          await ConversationParticipant.create({
+            ConversationId: conversation.id,
+            participantType: 'virtual',
+            identity: participant.id,
+            phoneNumber: participantVirtualResult.virtualNumber,
+            displayName: `${participant.firstName} ${participant.lastName}`,
+            role: 'member'
+          });
+        }
+      }
+    }
+  }
+  
+  return conversation;
 };
 
 // Instance methods
-Conversation.prototype.addMessage = async function(senderId, content, messageType = 'text') {
-  const { Message } = require('./Message');
-  const twilioService = require('../services/twilioService');
+Conversation.prototype.addParticipant = async function(participantId, participantType = 'virtual', displayName = null) {
+  const virtualPhoneService = require('../services/virtualPhoneService');
   
-  // Send message to Twilio conversation
-  const sender = await User.findByPk(senderId);
-  const twilioResult = await twilioService.sendMessage(
-    this.twilioConversationId,
-    sender.id,
-    content,
-    {
-      messageType: messageType,
-      senderName: `${sender.firstName} ${sender.lastName}`
+  if (participantType === 'virtual') {
+    // Add internal user
+    const user = await User.findByPk(participantId);
+    if (!user) {
+      throw new Error('User not found');
     }
-  );
-  
-  if (!twilioResult.success) {
-    throw new Error(`Failed to send message to Twilio: ${twilioResult.error}`);
+    
+    const virtualResult = await virtualPhoneService.assignVirtualNumber(participantId);
+    if (!virtualResult.success) {
+      throw new Error('Failed to assign virtual number to user');
+    }
+    
+    await ConversationParticipant.create({
+      ConversationId: this.id,
+      participantType: 'virtual',
+      identity: participantId,
+      phoneNumber: virtualResult.virtualNumber,
+      displayName: displayName || `${user.firstName} ${user.lastName}`,
+      role: 'member'
+    });
+    
+    return {
+      success: true,
+      participantId: participantId,
+      virtualNumber: virtualResult.virtualNumber
+    };
+  } else if (participantType === 'sms') {
+    // Add external SMS participant
+    await ConversationParticipant.create({
+      ConversationId: this.id,
+      participantType: 'sms',
+      identity: participantId, // This is the phone number
+      phoneNumber: participantId,
+      displayName: displayName || participantId,
+      role: 'member'
+    });
+    
+    return {
+      success: true,
+      participantId: participantId,
+      phoneNumber: participantId
+    };
   }
+  
+  throw new Error('Invalid participant type');
+};
+
+Conversation.prototype.removeParticipant = async function(participantId) {
+  const participant = await ConversationParticipant.findOne({
+    where: {
+      ConversationId: this.id,
+      identity: participantId
+    }
+  });
+  
+  if (!participant) {
+    throw new Error('Participant not found in conversation');
+  }
+  
+  // Mark as left instead of deleting to preserve history
+  await participant.update({
+    isActive: false,
+    leftAt: new Date()
+  });
+  
+  return {
+    success: true,
+    participantId: participantId,
+    message: 'Participant removed from conversation'
+  };
+};
+
+Conversation.prototype.getParticipants = async function() {
+  return await ConversationParticipant.findAll({
+    where: {
+      ConversationId: this.id,
+      isActive: true
+    },
+    include: [
+      {
+        model: User,
+        as: 'user',
+        attributes: ['id', 'username', 'firstName', 'lastName', 'avatar'],
+        required: false
+      }
+    ],
+    order: [['joinedAt', 'ASC']]
+  });
+};
+
+Conversation.prototype.sendMessage = async function(senderId, content, messageType = 'text') {
+  const virtualPhoneService = require('../services/virtualPhoneService');
+  const { Message } = require('./Message');
+  
+  // Get sender
+  const sender = await User.findByPk(senderId);
+  if (!sender) {
+    throw new Error('Sender not found');
+  }
+  
+  // Get conversation participants
+  const participants = await this.getParticipants();
+  
+  // Send SMS to all participants except sender
+  const smsPromises = participants
+    .filter(p => p.identity !== senderId.toString())
+    .map(async (participant) => {
+      if (participant.participantType === 'virtual') {
+        // Send to internal user
+        return await virtualPhoneService.sendInternalSMS(
+          senderId,
+          participant.identity,
+          content
+        );
+      } else if (participant.participantType === 'sms') {
+        // Send to external SMS participant
+        return await virtualPhoneService.sendExternalSMS(
+          senderId,
+          participant.phoneNumber,
+          content
+        );
+      }
+    });
+  
+  const smsResults = await Promise.all(smsPromises);
   
   // Store message in database
   const message = await Message.create({
@@ -359,35 +402,16 @@ Conversation.prototype.addMessage = async function(senderId, content, messageTyp
     messageType: messageType,
     senderId: senderId,
     conversationId: this.id,
-    twilioMessageId: twilioResult.messageId,
-    twilioConversationId: this.twilioConversationId
+    twilioStatus: 'sent'
   });
   
   // Update conversation last message time
   await this.update({ lastMessageAt: new Date() });
   
-  return message;
-};
-
-Conversation.prototype.getMessages = async function(limit = 50, offset = 0) {
-  const { Message } = require('./Message');
-  
-  return await Message.findAll({
-    where: {
-      conversationId: this.id,
-      isDeleted: false
-    },
-    include: [
-      {
-        model: User,
-        as: 'sender',
-        attributes: ['id', 'username', 'firstName', 'lastName', 'avatar']
-      }
-    ],
-    order: [['createdAt', 'DESC']],
-    limit: limit,
-    offset: offset
-  });
+  return {
+    message: message,
+    smsResults: smsResults
+  };
 };
 
 module.exports = { Conversation, ConversationParticipant }; 

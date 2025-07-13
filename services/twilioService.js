@@ -14,18 +14,30 @@ class TwilioService {
         );
         this.conversationsClient = this.client.conversations;
         this.phoneNumber = process.env.TWILIO_PHONE_NUMBER;
-        console.log('Twilio Conversations client initialized successfully');
+        this.conversationsServiceSid = process.env.TWILIO_CONVERSATIONS_SERVICE_SID;
+        
+        console.log('Twilio client initialized successfully');
+        console.log(`Phone Number: ${this.phoneNumber || 'Not set'}`);
+        console.log(`Conversations Service SID: ${this.conversationsServiceSid || 'Not set'}`);
+        
+        if (!this.conversationsServiceSid) {
+          console.log('⚠️  WARNING: TWILIO_CONVERSATIONS_SERVICE_SID not set');
+          console.log('   Conversations API features will be disabled');
+          console.log('   SMS users will not be able to reply back to web users');
+        }
       } catch (error) {
         console.log('Failed to initialize Twilio client:', error.message);
         this.client = null;
         this.conversationsClient = null;
         this.phoneNumber = null;
+        this.conversationsServiceSid = null;
       }
     } else {
       console.log('Twilio credentials not provided or invalid - SMS features will be disabled');
       this.client = null;
       this.conversationsClient = null;
       this.phoneNumber = null;
+      this.conversationsServiceSid = null;
     }
   }
 
@@ -235,13 +247,21 @@ class TwilioService {
     }
 
     try {
+      // Use MessagingServiceSid if available (like your working curl command)
       const messageData = {
         body: message,
-        from: this.phoneNumber,
         to: to,
         statusCallback: `${process.env.BASE_URL || 'http://localhost:5000'}/api/webhooks/twilio/status`,
         ...metadata
       };
+
+      // If MessagingServiceSid is configured, use it (preferred)
+      if (process.env.TWILIO_MESSAGING_SERVICE_SID) {
+        messageData.messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
+      } else {
+        // Fallback to using phone number directly
+        messageData.from = this.phoneNumber;
+      }
 
       const result = await this.client.messages.create(messageData);
       
@@ -250,13 +270,59 @@ class TwilioService {
         messageId: result.sid,
         status: result.status,
         to: result.to,
-        from: result.from,
+        from: result.from || result.messagingServiceSid,
         body: result.body,
         errorCode: result.errorCode,
         errorMessage: result.errorMessage
       };
     } catch (error) {
       console.error('Twilio SMS error:', error);
+      return {
+        success: false,
+        error: error.message,
+        code: error.code
+      };
+    }
+  }
+
+  // Direct SMS sending (matches your working curl command)
+  async sendDirectSMS(to, message) {
+    if (!this.client) {
+      console.log(`Mock direct SMS sent to ${to}: ${message}`);
+      return {
+        success: true,
+        messageId: 'mock-message-id',
+        status: 'sent',
+        to: to,
+        body: message
+      };
+    }
+
+    try {
+      const messageData = {
+        body: message,
+        to: to
+      };
+
+      // Use MessagingServiceSid if available
+      if (process.env.TWILIO_MESSAGING_SERVICE_SID) {
+        messageData.messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
+      } else {
+        messageData.from = this.phoneNumber;
+      }
+
+      const result = await this.client.messages.create(messageData);
+      
+      return {
+        success: true,
+        messageId: result.sid,
+        status: result.status,
+        to: result.to,
+        from: result.from || result.messagingServiceSid,
+        body: result.body
+      };
+    } catch (error) {
+      console.error('Twilio direct SMS error:', error);
       return {
         success: false,
         error: error.message,
@@ -362,22 +428,47 @@ class TwilioService {
         return res.status(403).json({ error: 'Invalid signature' });
       }
 
-      // Process the incoming message
-      const messageData = {
-        from: From,
-        to: To,
-        body: Body,
-        messageId: MessageSid,
-        timestamp: new Date()
-      };
+      console.log('Incoming SMS:', { From, To, Body, MessageSid });
 
-      // Here you would typically:
-      // 1. Find the user by phone number
-      // 2. Find the group they're messaging
-      // 3. Save the message to database
-      // 4. Send to other group members via SMS or push notification
+      // Check if this is a message to a virtual phone number
+      const virtualPhoneService = require('./virtualPhoneService');
+      const recipientUser = await virtualPhoneService.getUserByVirtualNumber(To);
+      
+      if (recipientUser) {
+        // This is a message to an internal user's virtual number
+        const result = await virtualPhoneService.handleIncomingSMS(From, To, Body);
+        
+        if (result.success) {
+          console.log(`SMS delivered to internal user ${recipientUser.username}`);
+          
+          // Here you could emit a Socket.IO event to notify the web user
+          // const io = req.app.get('io');
+          // if (io) {
+          //   io.to(`user-${recipientUser.id}`).emit('new-sms', {
+          //     from: From,
+          //     message: Body,
+          //     timestamp: new Date()
+          //   });
+          // }
+        }
+      } else {
+        // This is a regular SMS (not to a virtual number)
+        const messageData = {
+          from: From,
+          to: To,
+          body: Body,
+          messageId: MessageSid,
+          timestamp: new Date()
+        };
 
-      console.log('Incoming SMS:', messageData);
+        console.log('Regular SMS received:', messageData);
+        
+        // Here you would typically:
+        // 1. Find the user by phone number
+        // 2. Find the group they're messaging
+        // 3. Save the message to database
+        // 4. Send to other group members via SMS or push notification
+      }
       
       res.status(200).send();
     } catch (error) {

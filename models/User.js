@@ -9,16 +9,16 @@ const User = sequelize.define('User', {
     primaryKey: true
   },
   username: {
-    type: DataTypes.STRING(30),
+    type: DataTypes.STRING(50),
     allowNull: false,
     unique: true,
     validate: {
-      len: [3, 30],
+      len: [3, 50],
       is: /^[a-zA-Z0-9_]+$/
     }
   },
   email: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(100),
     allowNull: false,
     unique: true,
     validate: {
@@ -29,27 +29,29 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: false
   },
+  firstName: {
+    type: DataTypes.STRING(50),
+    allowNull: false
+  },
+  lastName: {
+    type: DataTypes.STRING(50),
+    allowNull: false
+  },
   phoneNumber: {
-    type: DataTypes.STRING(15),
-    allowNull: false,
-    unique: true,
+    type: DataTypes.STRING(20),
+    allowNull: true,
     validate: {
       is: /^\+?[1-9]\d{1,14}$/
     }
   },
-  firstName: {
-    type: DataTypes.STRING(50),
-    allowNull: false,
+  virtualPhoneNumber: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
+    unique: true,
     validate: {
-      len: [1, 50]
-    }
-  },
-  lastName: {
-    type: DataTypes.STRING(50),
-    allowNull: false,
-    validate: {
-      len: [1, 50]
-    }
+      is: /^\+?[1-9]\d{1,14}$/
+    },
+    comment: 'Virtual phone number assigned to internal users for SMS messaging'
   },
   avatar: {
     type: DataTypes.STRING,
@@ -59,13 +61,25 @@ const User = sequelize.define('User', {
     type: DataTypes.BOOLEAN,
     defaultValue: true
   },
+  lastSeen: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
   isVerified: {
     type: DataTypes.BOOLEAN,
     defaultValue: false
   },
-  lastSeen: {
+  verificationToken: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  resetPasswordToken: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  resetPasswordExpires: {
     type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW
+    allowNull: true
   },
   createdAt: {
     type: DataTypes.DATE,

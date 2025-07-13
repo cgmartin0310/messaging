@@ -1,6 +1,6 @@
-# Secure Messaging App with Twilio
+# Secure Messaging App with Virtual Phone Numbers
 
-A full-stack secure messaging application built with Node.js, React, and Twilio for SMS integration. This app allows users to create groups, send secure messages, and receive SMS notifications via Twilio.
+A full-stack secure messaging application built with Node.js, React, and Twilio SMS API. This app uses **virtual phone numbers** to enable bidirectional messaging between web users and SMS users.
 
 ## Features
 
@@ -14,37 +14,49 @@ A full-stack secure messaging application built with Node.js, React, and Twilio 
 ### 👥 User Management
 - User registration and login
 - Profile management
+- **Virtual phone number assignment**
 - Contact management
 - User search functionality
 
-### 💬 Group Messaging
-- Create and manage groups
-- Add/remove group members
-- Admin roles and permissions
-- Public and private groups
-
-### 📱 Messaging
-- Real-time messaging with Socket.IO
-- SMS notifications via Twilio
+### 💬 Unified Messaging
+- **Virtual phone numbers** for internal users
+- **Bidirectional SMS messaging** between web and SMS users
+- **Group conversations** with mixed participants
+- **Real-time web updates** via webhooks
 - Message encryption
 - Read receipts
 - Message editing and deletion
-- File and media sharing support
 
-### 📨 Twilio Integration
-- SMS sending and receiving
-- Phone number verification
+### 📱 SMS Integration
+- **Traditional SMS API** (simpler, cheaper)
+- **Virtual phone number system** for internal users
+- **Bidirectional messaging** - SMS users can reply back
+- **Group SMS** to multiple participants
 - Message status tracking
 - Webhook handling
+
+## How It Works
+
+### Virtual Phone Number System:
+1. **Internal users** get assigned virtual phone numbers
+2. **All messaging** goes through SMS (even between web users)
+3. **Unified experience** - everyone uses the same channel
+4. **Simpler architecture** - no complex Conversations API needed
+
+### Message Flow:
+```
+Web User A → System → SMS to User B's virtual number
+User B receives SMS → Replies via SMS → System → Web User A sees reply
+```
 
 ## Tech Stack
 
 ### Backend
 - **Node.js** - Runtime environment
 - **Express.js** - Web framework
-- **MongoDB** - Database
-- **Mongoose** - ODM
-- **Twilio** - SMS service
+- **PostgreSQL** - Database
+- **Sequelize** - ORM
+- **Twilio SMS API** - SMS service
 - **Socket.IO** - Real-time communication
 - **JWT** - Authentication
 - **bcryptjs** - Password hashing
@@ -53,7 +65,7 @@ A full-stack secure messaging application built with Node.js, React, and Twilio 
 ### Frontend
 - **React** - UI framework
 - **React Router** - Navigation
-- **Tailwind CSS** - Styling
+- **Material-UI** - Styling
 - **Socket.IO Client** - Real-time communication
 - **Axios** - HTTP client
 - **React Hook Form** - Form handling
@@ -62,12 +74,12 @@ A full-stack secure messaging application built with Node.js, React, and Twilio 
 ## Prerequisites
 
 - Node.js (v14 or higher)
-- MongoDB (local or cloud)
+- PostgreSQL (local or cloud)
 - Twilio account with:
   - Account SID
   - Auth Token
   - Phone number
-  - Verify service (optional)
+  - Messaging Service SID (optional)
 
 ## Installation
 
@@ -96,31 +108,30 @@ A full-stack secure messaging application built with Node.js, React, and Twilio 
    
    Edit `.env` file with your configuration:
    ```env
-   # Server Configuration
-   PORT=5000
-   NODE_ENV=development
+   # Twilio Configuration (Traditional SMS API)
+   TWILIO_ACCOUNT_SID=your-twilio-account-sid
+   TWILIO_AUTH_TOKEN=your-twilio-auth-token
+   TWILIO_PHONE_NUMBER=+1234567890
+   TWILIO_MESSAGING_SERVICE_SID=your-messaging-service-sid
 
-   # MongoDB Connection
-   MONGODB_URI=mongodb://localhost:27017/secure-messaging
+   # Server Configuration
+   PORT=5001
+   NODE_ENV=development
 
    # JWT Secret
    JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 
-   # Twilio Configuration
-   TWILIO_ACCOUNT_SID=your-twilio-account-sid
-   TWILIO_AUTH_TOKEN=your-twilio-auth-token
-   TWILIO_PHONE_NUMBER=+1234567890
+   # Database
+   DATABASE_URL=postgresql://username:password@host:port/database
 
-   # Security
-   BCRYPT_ROUNDS=12
-   RATE_LIMIT_WINDOW_MS=900000
-   RATE_LIMIT_MAX_REQUESTS=100
+   # Webhook URL (for production)
+   BASE_URL=https://your-domain.com
    ```
 
-5. **Start MongoDB**
+5. **Start PostgreSQL**
    ```bash
-   # If using local MongoDB
-   mongod
+   # If using local PostgreSQL
+   pg_ctl start
    ```
 
 6. **Run the application**
@@ -152,43 +163,33 @@ A full-stack secure messaging application built with Node.js, React, and Twilio 
 ### Authentication
 - `POST /api/auth/register` - Register new user
 - `POST /api/auth/login` - User login
-- `POST /api/auth/verify-phone` - Verify phone number
-- `POST /api/auth/check-verification` - Check verification code
 - `GET /api/auth/profile` - Get user profile
 - `POST /api/auth/refresh` - Refresh token
 
-### Users
+### User Management
 - `GET /api/users/profile` - Get current user profile
 - `PUT /api/users/profile` - Update user profile
-- `PUT /api/users/change-password` - Change password
-- `GET /api/users/search` - Search users
-- `GET /api/users/:userId` - Get user by ID
-- `POST /api/users/contacts/:userId` - Add contact
-- `DELETE /api/users/contacts/:userId` - Remove contact
-- `GET /api/users/contacts` - Get user contacts
-- `GET /api/users/groups` - Get user groups
+- `POST /api/users/virtual-number` - Assign virtual phone number
+- `DELETE /api/users/virtual-number` - Remove virtual phone number
+- `GET /api/users/virtual-numbers` - Get all users with virtual numbers
+- `POST /api/users/sms/internal/:userId` - Send SMS to internal user
+- `POST /api/users/sms/external` - Send SMS to external number
 
-### Groups
-- `POST /api/groups` - Create group
-- `GET /api/groups` - Get all groups
-- `GET /api/groups/:groupId` - Get group by ID
-- `PUT /api/groups/:groupId` - Update group
-- `POST /api/groups/:groupId/join` - Join group
-- `POST /api/groups/:groupId/leave` - Leave group
-- `POST /api/groups/:groupId/members/:userId` - Add member
-- `DELETE /api/groups/:groupId/members/:userId` - Remove member
-- `POST /api/groups/:groupId/members/:userId/promote` - Promote to admin
-- `DELETE /api/groups/:groupId` - Delete group
+### Conversations
+- `POST /api/conversations/direct` - Create direct conversation
+- `POST /api/conversations/sms` - Create SMS conversation
+- `POST /api/conversations/group` - Create group conversation
+- `GET /api/conversations/:id` - Get conversation details
+- `GET /api/conversations/:id/participants` - Get conversation participants
+- `POST /api/conversations/:id/participants` - Add participant
+- `DELETE /api/conversations/:id/participants/:participantId` - Remove participant
+- `POST /api/conversations/:id/messages` - Send message to conversation
 
 ### Messages
-- `POST /api/messages/:groupId` - Send message
-- `GET /api/messages/:groupId` - Get group messages
-- `GET /api/messages/message/:messageId` - Get message by ID
-- `POST /api/messages/:messageId/read` - Mark as read
+- `POST /api/messages/:conversationId` - Send message
+- `GET /api/messages/:conversationId` - Get conversation messages
 - `PUT /api/messages/:messageId` - Edit message
 - `DELETE /api/messages/:messageId` - Delete message
-- `GET /api/messages/unread/count` - Get unread count
-- `GET /api/messages/:groupId/search` - Search messages
 
 ### Webhooks
 - `POST /api/webhooks/twilio/incoming` - Handle incoming SMS
@@ -202,109 +203,123 @@ A full-stack secure messaging application built with Node.js, React, and Twilio 
    - Account SID
    - Auth Token
    - Phone number
+   - Messaging Service SID (optional but recommended)
 
 3. **Set up webhooks** (for production):
    - Incoming SMS: `https://your-domain.com/api/webhooks/twilio/incoming`
    - Status callback: `https://your-domain.com/api/webhooks/twilio/status`
 
-4. **Optional: Set up Verify service** for phone verification
+## Testing
+
+### Test Commands:
+```bash
+# Test virtual phone number system
+npm run test-virtual-phones
+
+# Test conversation participant management
+npm run test-conversation-participants
+
+# Test direct SMS sending
+npm run test-sms-direct
+
+# Test database connection
+npm run test-db
+```
+
+## Cost Comparison
+
+### Virtual Phone Numbers:
+- **SMS**: ~$0.0075 per message
+- **Total**: ~$0.0075 per message (bidirectional)
+
+### Conversations API:
+- **SMS**: ~$0.0075 per message
+- **Conversations**: ~$0.001 per participant per day
+- **Total**: ~$0.01 per message (bidirectional)
+
+**Savings**: Virtual phone numbers are **25% cheaper** than Conversations API!
 
 ## Database Schema
 
 ### User
 ```javascript
 {
+  id: UUID,
   username: String,
   email: String,
   password: String (hashed),
-  phoneNumber: String,
   firstName: String,
   lastName: String,
+  phoneNumber: String,
+  virtualPhoneNumber: String, // Virtual number for SMS
   avatar: String,
   isActive: Boolean,
   lastSeen: Date,
-  groups: [ObjectId],
-  contacts: [ObjectId]
+  createdAt: Date
 }
 ```
 
-### Group
+### Conversation
 ```javascript
 {
+  id: UUID,
   name: String,
   description: String,
-  avatar: String,
-  creator: ObjectId,
-  admins: [ObjectId],
-  members: [{
-    user: ObjectId,
-    role: String,
-    joinedAt: Date
-  }],
-  isPrivate: Boolean,
+  conversationType: ENUM('direct', 'group', 'sms'),
   isActive: Boolean,
-  maxMembers: Number,
-  settings: Object
+  isPrivate: Boolean,
+  maxParticipants: Number,
+  lastMessageAt: Date,
+  createdAt: Date
+}
+```
+
+### ConversationParticipant
+```javascript
+{
+  id: UUID,
+  ConversationId: UUID,
+  participantType: ENUM('virtual', 'sms'),
+  identity: String, // User ID or phone number
+  phoneNumber: String,
+  displayName: String,
+  role: ENUM('admin', 'member'),
+  isActive: Boolean,
+  joinedAt: Date,
+  leftAt: Date
 }
 ```
 
 ### Message
 ```javascript
 {
-  sender: ObjectId,
-  group: ObjectId,
+  id: UUID,
   content: String,
-  messageType: String,
-  mediaUrl: String,
+  messageType: ENUM('text', 'image', 'file', 'audio', 'video'),
+  senderId: UUID,
+  conversationId: UUID,
   isEncrypted: Boolean,
-  encryptionKey: String,
   twilioMessageId: String,
-  twilioStatus: String,
-  readBy: [{
-    user: ObjectId,
-    readAt: Date
-  }],
-  replyTo: ObjectId,
+  twilioStatus: ENUM('pending', 'sent', 'delivered', 'failed'),
   isEdited: Boolean,
-  isDeleted: Boolean
+  isDeleted: Boolean,
+  createdAt: Date
 }
 ```
 
-## Security Features
+## Deployment
 
-- **Password Hashing**: bcrypt with configurable rounds
-- **JWT Authentication**: Secure token-based auth
-- **Rate Limiting**: Prevent abuse
-- **Input Validation**: Comprehensive validation
-- **CORS Protection**: Configured for security
-- **Helmet**: Security headers
-- **Message Encryption**: AES-256-GCM encryption
+### Render Deployment:
+1. **Backend**: Web service with Node.js
+2. **Frontend**: Static site
+3. **Database**: PostgreSQL
+4. **Environment Variables**: Set all required variables
+5. **Webhooks**: Configure Twilio webhooks
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License.
+See `DEPLOYMENT.md` for detailed instructions.
 
 ## Support
 
-For support, please open an issue in the GitHub repository or contact the development team.
-
-## Roadmap
-
-- [ ] Push notifications
-- [ ] Voice messages
-- [ ] Video calls
-- [ ] End-to-end encryption
-- [ ] Message reactions
-- [ ] Group polls
-- [ ] Message scheduling
-- [ ] Advanced search
-- [ ] Message translation
-- [ ] Mobile app 
+- [Twilio SMS API Documentation](https://www.twilio.com/docs/sms)
+- [Virtual Phone Number Setup Guide](TWILIO_VIRTUAL_PHONES_SETUP.md)
+- [Deployment Guide](DEPLOYMENT.md) 
