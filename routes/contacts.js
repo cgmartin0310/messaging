@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 const { User, Contact } = require('../models');
 
 // Get all contacts for the current user
-router.get('/', auth, async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
   try {
     const contacts = await Contact.findAll({
       where: { isActive: true },
@@ -32,7 +32,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // Get a specific contact
-router.get('/:id', auth, async (req, res) => {
+router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const contact = await Contact.findByPk(req.params.id, {
       include: [
@@ -65,7 +65,7 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // Create a new external contact
-router.post('/', auth, async (req, res) => {
+router.post('/', authenticateToken, async (req, res) => {
   try {
     const { firstName, lastName, phoneNumber, displayName, email, notes } = req.body;
 
@@ -112,7 +112,7 @@ router.post('/', auth, async (req, res) => {
 });
 
 // Update a contact
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', authenticateToken, async (req, res) => {
   try {
     const contact = await Contact.findByPk(req.params.id);
 
@@ -147,7 +147,7 @@ router.put('/:id', auth, async (req, res) => {
 });
 
 // Delete a contact (soft delete)
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     const contact = await Contact.findByPk(req.params.id);
 
@@ -174,7 +174,7 @@ router.delete('/:id', auth, async (req, res) => {
 });
 
 // Get all app users as potential contacts
-router.get('/users/list', auth, async (req, res) => {
+router.get('/users/list', authenticateToken, async (req, res) => {
   try {
     const users = await User.findAll({
       where: { 
@@ -209,7 +209,7 @@ router.get('/users/list', auth, async (req, res) => {
 });
 
 // Add a user as a contact
-router.post('/users/:userId', auth, async (req, res) => {
+router.post('/users/:userId', authenticateToken, async (req, res) => {
   try {
     const user = await User.findByPk(req.params.userId);
 
