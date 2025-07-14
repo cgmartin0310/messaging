@@ -44,10 +44,14 @@ const Conversations = () => {
     try {
       setLoading(true);
       const response = await axios.get('/api/conversations');
-      setConversations(response.data);
+      console.log('Conversations API response:', response.data);
+      // Handle the new API response format
+      const conversationsData = response.data.conversations || response.data || [];
+      setConversations(conversationsData);
     } catch (error) {
       console.error('Error fetching conversations:', error);
       toast.error('Failed to load conversations');
+      setConversations([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
@@ -58,12 +62,19 @@ const Conversations = () => {
       return conversation.name;
     }
     
-    // For direct conversations, show the other person's name
+    // For direct conversations
     if (conversation.conversationType === 'direct') {
-      const otherParticipant = conversation.participants.find(p => 
-        p.participantType === 'user' && p.identity !== conversation.currentUserId
-      );
-      return otherParticipant ? otherParticipant.displayName : 'Direct Chat';
+      return 'Direct Chat';
+    }
+    
+    // For SMS conversations
+    if (conversation.conversationType === 'sms') {
+      return 'SMS Conversation';
+    }
+    
+    // For group conversations
+    if (conversation.conversationType === 'group') {
+      return conversation.name || 'Group Chat';
     }
     
     return conversation.name || 'Conversation';
@@ -71,24 +82,24 @@ const Conversations = () => {
 
   const getConversationSubtitle = (conversation) => {
     if (conversation.conversationType === 'direct') {
-      const otherParticipant = conversation.participants.find(p => 
-        p.participantType === 'user' && p.identity !== conversation.currentUserId
-      );
-      return otherParticipant ? 'App User' : 'Direct conversation';
+      return 'Direct conversation';
     }
     
-    // Check if it's an SMS conversation
-    const smsParticipant = conversation.participants.find(p => p.participantType === 'sms');
-    if (smsParticipant) {
-      return `SMS • ${smsParticipant.phoneNumber}`;
+    // For SMS conversations
+    if (conversation.conversationType === 'sms') {
+      return 'SMS conversation';
+    }
+    
+    // For group conversations
+    if (conversation.conversationType === 'group') {
+      return 'Group conversation';
     }
     
     return 'Conversation';
   };
 
   const getConversationType = (conversation) => {
-    const smsParticipant = conversation.participants.find(p => p.participantType === 'sms');
-    if (smsParticipant) {
+    if (conversation.conversationType === 'sms') {
       return 'sms';
     }
     return 'app';
@@ -101,16 +112,17 @@ const Conversations = () => {
 
   const getConversationAvatar = (conversation) => {
     if (conversation.conversationType === 'direct') {
-      const otherParticipant = conversation.participants.find(p => 
-        p.participantType === 'user' && p.identity !== conversation.currentUserId
-      );
-      return otherParticipant ? otherParticipant.displayName.charAt(0).toUpperCase() : '?';
+      return 'D';
     }
     
     // For SMS conversations
-    const smsParticipant = conversation.participants.find(p => p.participantType === 'sms');
-    if (smsParticipant) {
-      return smsParticipant.displayName ? smsParticipant.displayName.charAt(0).toUpperCase() : 'S';
+    if (conversation.conversationType === 'sms') {
+      return 'S';
+    }
+    
+    // For group conversations
+    if (conversation.conversationType === 'group') {
+      return 'G';
     }
     
     return conversation.name ? conversation.name.charAt(0).toUpperCase() : 'C';
@@ -133,10 +145,10 @@ const Conversations = () => {
     }
   };
 
-  const filteredConversations = conversations.filter(conversation => {
+  const filteredConversations = Array.isArray(conversations) ? conversations.filter(conversation => {
     const name = getConversationName(conversation).toLowerCase();
     return name.includes(searchQuery.toLowerCase());
-  });
+  }) : [];
 
   if (loading) {
     return (
