@@ -77,16 +77,7 @@ const Contact = sequelize.define('Contact', {
 }, {
   tableName: 'contacts',
   timestamps: true,
-  indexes: [
-    {
-      unique: true,
-      fields: ['userId']
-    },
-    {
-      unique: true,
-      fields: ['phoneNumber']
-    }
-  ]
+
 });
 
 // Instance methods
