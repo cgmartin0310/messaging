@@ -53,8 +53,8 @@ const Chat = () => {
       console.log('Conversation response:', conversationRes.data);
       console.log('Messages response:', messagesRes.data);
 
-      setConversation(conversationRes.data);
-      setMessages(messagesRes.data.reverse()); // Show newest first
+      setConversation(conversationRes.data.conversation);
+      setMessages(messagesRes.data.messages.reverse()); // Show newest first
     } catch (error) {
       console.error('Error fetching chat data:', error);
       console.error('Error details:', error.response?.data);
