@@ -83,16 +83,6 @@ router.post('/:conversationId', authenticateToken, validateMessage, async (req, 
       });
     }
 
-    // Use existing Twilio conversation
-    const conversationResult = {
-      success: true,
-      conversationId: conversation.twilioConversationId
-    };
-
-    if (!conversationResult.success) {
-      console.error('Failed to create conversation:', conversationResult.error);
-    }
-
     // Create message in database
     const message = await Message.create({
       senderId: senderId,
@@ -104,8 +94,7 @@ router.post('/:conversationId', authenticateToken, validateMessage, async (req, 
       mediaSize,
       replyToId: replyTo,
       isEncrypted: true,
-      encryptionKey: twilioService.generateEncryptionKey(),
-      twilioConversationId: conversationResult.conversationId
+      encryptionKey: twilioService.generateEncryptionKey()
     });
 
     // Get message with sender info
@@ -130,21 +119,57 @@ router.post('/:conversationId', authenticateToken, validateMessage, async (req, 
       ]
     });
 
-    // Send message to Twilio conversation
+    // Send SMS using virtual phone system
     let twilioMessageResult = { success: false };
-    if (conversationResult.success) {
-      const author = `${req.user.firstName} ${req.user.lastName}`.trim();
-      twilioMessageResult = await twilioService.sendMessage(
-        conversationResult.conversationId,
-        author,
-        content,
-        {
-          messageId: message.id.toString(),
-          conversationId: conversationId,
-          messageType: messageType,
-          senderId: senderId.toString()
+    try {
+      const virtualPhoneService = require('../services/virtualPhoneService');
+      
+      // Get conversation participants
+      const participants = await ConversationParticipant.findAll({
+        where: { 
+          ConversationId: conversationId,
+          isActive: true
         }
-      );
+      });
+
+      // Send SMS to all participants except sender
+      const smsPromises = participants
+        .filter(p => p.identity !== senderId.toString())
+        .map(async (participant) => {
+          if (participant.participantType === 'virtual') {
+            // Send to internal user via virtual phone
+            return await virtualPhoneService.sendInternalSMS(
+              senderId,
+              participant.identity,
+              content
+            );
+          } else if (participant.participantType === 'sms') {
+            // Send to external SMS participant
+            return await virtualPhoneService.sendExternalSMS(
+              senderId,
+              participant.phoneNumber,
+              content
+            );
+          }
+        });
+
+      const smsResults = await Promise.all(smsPromises);
+      
+      // Check if any SMS was sent successfully
+      const successfulSMS = smsResults.find(result => result && result.success);
+      if (successfulSMS) {
+        twilioMessageResult = {
+          success: true,
+          messageId: successfulSMS.messageId,
+          status: 'sent'
+        };
+      }
+    } catch (error) {
+      console.error('SMS sending error:', error);
+      twilioMessageResult = {
+        success: false,
+        error: error.message
+      };
     }
 
     // Update message with Twilio results
