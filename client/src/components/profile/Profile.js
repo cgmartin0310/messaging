@@ -128,7 +128,8 @@ const Profile = () => {
       const profileData = {
         firstName: formData.firstName,
         lastName: formData.lastName,
-        phoneNumber: formData.phoneNumber
+        phoneNumber: formData.phoneNumber,
+        virtualPhoneNumber: formData.virtualPhoneNumber
       };
 
       console.log('Sending profile data:', profileData);
@@ -182,26 +183,7 @@ const Profile = () => {
     }
   };
 
-  const handleAssignVirtualNumber = async () => {
-    try {
-      setSaving(true);
-      const response = await axios.post('/api/users/virtual-number');
-      
-      if (response.data.virtualNumber) {
-        setFormData(prev => ({
-          ...prev,
-          virtualPhoneNumber: response.data.virtualNumber
-        }));
-        toast.success('Virtual number assigned successfully!');
-        fetchProfile(); // Refresh profile data
-      }
-    } catch (error) {
-      console.error('Error assigning virtual number:', error);
-      toast.error('Failed to assign virtual number');
-    } finally {
-      setSaving(false);
-    }
-  };
+
 
 
 
@@ -357,35 +339,16 @@ const Profile = () => {
                           label="SMS Phone (Virtual)"
                           name="virtualPhoneNumber"
                           value={formData.virtualPhoneNumber}
-                          disabled
-                          helperText="Your assigned Twilio number for sending SMS messages"
+                          onChange={handleInputChange}
+                          placeholder="+19104442405 or 9104442405"
+                          helperText="Enter your Twilio phone number for sending SMS messages"
                           InputProps={{
                             startAdornment: <Phone sx={{ mr: 1, color: 'text.secondary' }} />
                           }}
                         />
-                        {!formData.virtualPhoneNumber && (
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            onClick={handleAssignVirtualNumber}
-                            sx={{ mt: 1 }}
-                          >
-                            Assign Twilio Number
-                          </Button>
-                        )}
-                        {formData.virtualPhoneNumber && (
-                          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                            This is your assigned Twilio number for SMS messaging
-                          </Typography>
-                        )}
                         <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                          Contact admin to add more Twilio numbers to the pool
+                          Enter your Twilio phone number (will be formatted automatically)
                         </Typography>
-                        {formData.virtualPhoneNumber && (
-                          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                            This is your assigned Twilio number for SMS messaging
-                          </Typography>
-                        )}
                       </Grid>
                       <Grid item xs={12}>
                         <TextField

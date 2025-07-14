@@ -35,18 +35,54 @@ router.get('/profile', authenticateToken, async (req, res) => {
 // Update user profile
 router.put('/profile', authenticateToken, async (req, res) => {
   try {
-    const { firstName, lastName, phoneNumber, avatar } = req.body;
+    const { firstName, lastName, phoneNumber, virtualPhoneNumber, avatar } = req.body;
     
     console.log('Profile update request body:', req.body);
-    console.log('Extracted values:', { firstName, lastName, phoneNumber, avatar });
+    console.log('Extracted values:', { firstName, lastName, phoneNumber, virtualPhoneNumber, avatar });
     
     const user = await User.findByPk(req.user.id);
     console.log('Current user phone number:', user.phoneNumber);
+    console.log('Current user virtual phone number:', user.virtualPhoneNumber);
+    
+    // Clean virtual phone number if provided
+    let cleanVirtualNumber = null;
+    if (virtualPhoneNumber !== undefined && virtualPhoneNumber.trim()) {
+      let cleanNumber = virtualPhoneNumber.trim();
+      
+      // Remove any non-digit characters except +
+      cleanNumber = cleanNumber.replace(/[^\d+]/g, '');
+      
+      // Ensure it starts with +1
+      if (!cleanNumber.startsWith('+1')) {
+        if (cleanNumber.startsWith('1')) {
+          cleanNumber = '+' + cleanNumber;
+        } else if (cleanNumber.startsWith('+')) {
+          // Already has +, just ensure it's +1
+          if (!cleanNumber.startsWith('+1')) {
+            cleanNumber = '+1' + cleanNumber.substring(1);
+          }
+        } else {
+          // Add +1 prefix
+          cleanNumber = '+1' + cleanNumber;
+        }
+      }
+      
+      // Validate final format (must be +1 followed by exactly 10 digits)
+      if (!cleanNumber.match(/^\+1[0-9]{10}$/)) {
+        return res.status(400).json({ 
+          error: 'Invalid virtual phone number format',
+          message: `Expected +1XXXXXXXXXX, got: ${cleanNumber}`
+        });
+      }
+      
+      cleanVirtualNumber = cleanNumber;
+    }
     
     const updateData = {
       firstName: firstName !== undefined ? firstName : user.firstName,
       lastName: lastName !== undefined ? lastName : user.lastName,
       phoneNumber: phoneNumber !== undefined ? phoneNumber : user.phoneNumber,
+      virtualPhoneNumber: cleanVirtualNumber !== null ? cleanVirtualNumber : user.virtualPhoneNumber,
       avatar: avatar !== undefined ? avatar : user.avatar
     };
     
@@ -58,6 +94,7 @@ router.put('/profile', authenticateToken, async (req, res) => {
     await user.reload();
     
     console.log('Updated user phone number:', user.phoneNumber);
+    console.log('Updated user virtual phone number:', user.virtualPhoneNumber);
     
     res.json({
       message: 'Profile updated successfully',
