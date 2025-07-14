@@ -13,6 +13,7 @@ const userRoutes = require('./routes/users');
 const contactRoutes = require('./routes/contacts');
 const conversationRoutes = require('./routes/conversations');
 const webhookRoutes = require('./routes/webhooks');
+const twilioNumberRoutes = require('./routes/twilioNumbers');
 
 const app = express();
 
@@ -125,6 +126,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/contacts', contactRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/twilio-numbers', twilioNumberRoutes);
 
 // Health check endpoint
 app.get('/api/health', async (req, res) => {

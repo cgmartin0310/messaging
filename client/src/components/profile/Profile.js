@@ -356,7 +356,7 @@ const Profile = () => {
                           name="virtualPhoneNumber"
                           value={formData.virtualPhoneNumber}
                           disabled
-                          helperText="System-assigned number for SMS messaging"
+                          helperText="Your assigned Twilio number for sending SMS messages"
                           InputProps={{
                             startAdornment: <Phone sx={{ mr: 1, color: 'text.secondary' }} />
                           }}
@@ -368,8 +368,13 @@ const Profile = () => {
                             onClick={handleAssignVirtualNumber}
                             sx={{ mt: 1 }}
                           >
-                            Assign Virtual Number
+                            Assign Twilio Number
                           </Button>
+                        )}
+                        {formData.virtualPhoneNumber && (
+                          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                            This is your assigned Twilio number for SMS messaging
+                          </Typography>
                         )}
                       </Grid>
                       <Grid item xs={12}>

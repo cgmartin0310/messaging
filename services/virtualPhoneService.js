@@ -1,10 +1,9 @@
 const twilioService = require('./twilioService');
+const twilioNumberService = require('./twilioNumberService');
 const { User } = require('../models');
 
 class VirtualPhoneService {
   constructor() {
-    this.baseNumber = process.env.TWILIO_PHONE_NUMBER;
-    this.numberPool = new Set();
     // Load existing numbers asynchronously
     this.loadExistingNumbers().catch(error => {
       console.error('Error loading existing virtual numbers:', error);
@@ -14,24 +13,14 @@ class VirtualPhoneService {
   // Load existing virtual numbers from database
   async loadExistingNumbers() {
     try {
-      const users = await User.findAll({
-        where: { virtualPhoneNumber: { [require('sequelize').Op.ne]: null } },
-        attributes: ['virtualPhoneNumber']
-      });
-      
-      users.forEach(user => {
-        if (user.virtualPhoneNumber) {
-          this.numberPool.add(user.virtualPhoneNumber);
-        }
-      });
-      
-      console.log(`Loaded ${this.numberPool.size} existing virtual phone numbers`);
+      await twilioNumberService.loadNumbers();
+      console.log('Twilio numbers loaded successfully');
     } catch (error) {
       console.error('Error loading existing virtual numbers:', error);
     }
   }
 
-  // Generate a virtual phone number for a user
+  // Assign a Twilio number to a user
   async assignVirtualNumber(userId) {
     try {
       const user = await User.findByPk(userId);
@@ -48,24 +37,27 @@ class VirtualPhoneService {
         };
       }
 
-      // Check if base number is set
-      if (!this.baseNumber) {
-        throw new Error('TWILIO_PHONE_NUMBER environment variable not set');
+      // Get available Twilio numbers
+      const availableNumbers = twilioNumberService.getAvailableNumbers();
+      
+      if (availableNumbers.length === 0) {
+        throw new Error('No available Twilio numbers. Please add more numbers to the pool.');
       }
 
-      // Generate a unique virtual number
-      const virtualNumber = await this.generateUniqueNumber();
+      // Assign the first available number
+      const phoneNumber = availableNumbers[0];
+      const result = await twilioNumberService.assignNumberToUser(userId, phoneNumber);
       
-      // Assign to user
-      await user.update({ virtualPhoneNumber: virtualNumber });
-      
-      console.log(`Assigned virtual number ${virtualNumber} to user ${user.username}`);
-      
-      return {
-        success: true,
-        virtualNumber: virtualNumber,
-        message: 'Virtual number assigned successfully'
-      };
+      if (result.success) {
+        console.log(`Assigned Twilio number ${phoneNumber} to user ${user.username}`);
+        return {
+          success: true,
+          virtualNumber: phoneNumber,
+          message: 'Twilio number assigned successfully'
+        };
+      } else {
+        throw new Error(result.error);
+      }
     } catch (error) {
       console.error('Error assigning virtual number:', error);
       return {
@@ -75,40 +67,7 @@ class VirtualPhoneService {
     }
   }
 
-  // Generate a unique virtual phone number
-  async generateUniqueNumber() {
-    if (!this.baseNumber) {
-      throw new Error('TWILIO_PHONE_NUMBER not set - cannot generate virtual numbers');
-    }
-    
-    const maxAttempts = 100;
-    let attempts = 0;
-    
-    while (attempts < maxAttempts) {
-      // Generate a virtual number based on the base number
-      // Format: +1XXXYYYZZZZ where XXX is area code, YYY is prefix, ZZZZ is unique
-      const baseNumber = this.baseNumber.replace(/\D/g, '');
-      const areaCode = baseNumber.substring(1, 4);
-      const prefix = baseNumber.substring(4, 7);
-      const uniquePart = Math.floor(Math.random() * 9000) + 1000; // 4-digit unique number
-      
-      const virtualNumber = `+1${areaCode}${prefix}${uniquePart}`;
-      
-      // Check if this number is already in use
-      const existingUser = await User.findOne({
-        where: { virtualPhoneNumber: virtualNumber }
-      });
-      
-      if (!existingUser && !this.numberPool.has(virtualNumber)) {
-        this.numberPool.add(virtualNumber);
-        return virtualNumber;
-      }
-      
-      attempts++;
-    }
-    
-    throw new Error('Unable to generate unique virtual number after 100 attempts');
-  }
+
 
   // Send SMS from one internal user to another
   async sendInternalSMS(fromUserId, toUserId, message) {
@@ -141,7 +100,7 @@ class VirtualPhoneService {
         toUser.virtualPhoneNumber = toVirtualResult.virtualNumber;
       }
 
-      // Send SMS using traditional SMS API with virtual number as "from"
+      // Send SMS using the user's assigned Twilio number as "from"
       const result = await twilioService.sendDirectSMSWithFrom(
         toUser.virtualPhoneNumber,
         fromUser.virtualPhoneNumber,
@@ -151,7 +110,7 @@ class VirtualPhoneService {
       return {
         success: result.success,
         messageId: result.messageId,
-        from: fromUser.virtualPhoneNumber,
+        from: fromUser.virtualPhoneNumber, // Use user's assigned Twilio number
         to: toUser.virtualPhoneNumber,
         message: message
       };
@@ -182,7 +141,7 @@ class VirtualPhoneService {
         fromUser.virtualPhoneNumber = virtualResult.virtualNumber;
       }
 
-      // Send SMS using traditional SMS API with virtual number as "from"
+      // Send SMS using the user's assigned Twilio number as "from"
       const result = await twilioService.sendDirectSMSWithFrom(
         toPhoneNumber,
         fromUser.virtualPhoneNumber,
@@ -192,7 +151,7 @@ class VirtualPhoneService {
       return {
         success: result.success,
         messageId: result.messageId,
-        from: fromUser.virtualPhoneNumber,
+        from: fromUser.virtualPhoneNumber, // Use user's assigned Twilio number
         to: toPhoneNumber,
         message: message
       };
