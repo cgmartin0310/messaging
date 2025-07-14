@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const twilioService = require('../services/twilioService');
+const virtualPhoneService = require('../services/virtualPhoneService');
 const sequelize = require('../config/database');
 const { Op } = require('sequelize');
 
@@ -113,6 +114,19 @@ router.post('/register', validateRegistration, async (req, res) => {
       firstName,
       lastName
     });
+
+    // Assign virtual phone number to new user
+    try {
+      const virtualResult = await virtualPhoneService.assignVirtualNumber(user.id);
+      if (virtualResult.success) {
+        console.log(`Assigned virtual number ${virtualResult.virtualNumber} to user ${user.username}`);
+      } else {
+        console.warn(`Failed to assign virtual number to user ${user.username}: ${virtualResult.error}`);
+      }
+    } catch (error) {
+      console.error('Error assigning virtual number during registration:', error);
+      // Don't fail registration if virtual number assignment fails
+    }
 
     // Generate token
     const token = generateToken(user.id);

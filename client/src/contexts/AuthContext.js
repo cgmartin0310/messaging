@@ -3,7 +3,36 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 
 // Set axios base URL for API calls
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+// In development, use proxy. In production, use environment variable or auto-detect
+const getApiUrl = () => {
+  // If environment variable is set, use it
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  
+  // In production, try to auto-detect the backend URL
+  if (process.env.NODE_ENV === 'production') {
+    // If we're on Render, the backend is likely on the same domain with different path
+    const currentOrigin = window.location.origin;
+    // Try common Render backend patterns
+    if (currentOrigin.includes('onrender.com')) {
+      // Extract the app name and construct backend URL
+      const pathParts = window.location.pathname.split('/');
+      if (pathParts.length > 1) {
+        // Try to construct backend URL
+        return `https://messaging-backend-7bvd.onrender.com`;
+      }
+    }
+    // Fallback to same origin
+    return currentOrigin;
+  }
+  
+  // Development fallback
+  return 'http://localhost:5001';
+};
+
+const API_URL = getApiUrl();
+console.log('API URL:', API_URL);
 axios.defaults.baseURL = API_URL;
 
 const AuthContext = createContext();

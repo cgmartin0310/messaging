@@ -5,7 +5,10 @@ class VirtualPhoneService {
   constructor() {
     this.baseNumber = process.env.TWILIO_PHONE_NUMBER;
     this.numberPool = new Set();
-    this.loadExistingNumbers();
+    // Load existing numbers asynchronously
+    this.loadExistingNumbers().catch(error => {
+      console.error('Error loading existing virtual numbers:', error);
+    });
   }
 
   // Load existing virtual numbers from database
@@ -45,6 +48,11 @@ class VirtualPhoneService {
         };
       }
 
+      // Check if base number is set
+      if (!this.baseNumber) {
+        throw new Error('TWILIO_PHONE_NUMBER environment variable not set');
+      }
+
       // Generate a unique virtual number
       const virtualNumber = await this.generateUniqueNumber();
       
@@ -69,6 +77,10 @@ class VirtualPhoneService {
 
   // Generate a unique virtual phone number
   async generateUniqueNumber() {
+    if (!this.baseNumber) {
+      throw new Error('TWILIO_PHONE_NUMBER not set - cannot generate virtual numbers');
+    }
+    
     const maxAttempts = 100;
     let attempts = 0;
     
@@ -110,13 +122,29 @@ class VirtualPhoneService {
         throw new Error('One or both users not found');
       }
 
-      if (!fromUser.virtualPhoneNumber || !toUser.virtualPhoneNumber) {
-        throw new Error('Both users must have virtual phone numbers');
+      // Ensure both users have virtual phone numbers
+      if (!fromUser.virtualPhoneNumber) {
+        console.log(`User ${fromUser.username} doesn't have a virtual number, assigning one...`);
+        const fromVirtualResult = await this.assignVirtualNumber(fromUserId);
+        if (!fromVirtualResult.success) {
+          throw new Error(`Failed to assign virtual number to sender: ${fromVirtualResult.error}`);
+        }
+        fromUser.virtualPhoneNumber = fromVirtualResult.virtualNumber;
       }
 
-      // Send SMS using traditional SMS API
-      const result = await twilioService.sendDirectSMS(
+      if (!toUser.virtualPhoneNumber) {
+        console.log(`User ${toUser.username} doesn't have a virtual number, assigning one...`);
+        const toVirtualResult = await this.assignVirtualNumber(toUserId);
+        if (!toVirtualResult.success) {
+          throw new Error(`Failed to assign virtual number to recipient: ${toVirtualResult.error}`);
+        }
+        toUser.virtualPhoneNumber = toVirtualResult.virtualNumber;
+      }
+
+      // Send SMS using traditional SMS API with virtual number as "from"
+      const result = await twilioService.sendDirectSMSWithFrom(
         toUser.virtualPhoneNumber,
+        fromUser.virtualPhoneNumber,
         `[${fromUser.firstName} ${fromUser.lastName}]: ${message}`
       );
 
@@ -144,13 +172,20 @@ class VirtualPhoneService {
         throw new Error('User not found');
       }
 
+      // Ensure sender has a virtual phone number
       if (!fromUser.virtualPhoneNumber) {
-        throw new Error('User must have a virtual phone number');
+        console.log(`User ${fromUser.username} doesn't have a virtual number, assigning one...`);
+        const virtualResult = await this.assignVirtualNumber(fromUserId);
+        if (!virtualResult.success) {
+          throw new Error(`Failed to assign virtual number to sender: ${virtualResult.error}`);
+        }
+        fromUser.virtualPhoneNumber = virtualResult.virtualNumber;
       }
 
-      // Send SMS using traditional SMS API
-      const result = await twilioService.sendDirectSMS(
+      // Send SMS using traditional SMS API with virtual number as "from"
+      const result = await twilioService.sendDirectSMSWithFrom(
         toPhoneNumber,
+        fromUser.virtualPhoneNumber,
         `[${fromUser.firstName} ${fromUser.lastName}]: ${message}`
       );
 

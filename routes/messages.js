@@ -124,6 +124,18 @@ router.post('/:conversationId', authenticateToken, validateMessage, async (req, 
     try {
       const virtualPhoneService = require('../services/virtualPhoneService');
       
+      // Ensure sender has a virtual phone number
+      const sender = await User.findByPk(senderId);
+      if (!sender.virtualPhoneNumber) {
+        console.log(`User ${sender.username} doesn't have a virtual number, assigning one...`);
+        const virtualResult = await virtualPhoneService.assignVirtualNumber(senderId);
+        if (!virtualResult.success) {
+          console.error(`Failed to assign virtual number to user ${sender.username}: ${virtualResult.error}`);
+          throw new Error('User must have a virtual phone number to send SMS messages');
+        }
+        console.log(`Assigned virtual number ${virtualResult.virtualNumber} to user ${sender.username}`);
+      }
+      
       // Get conversation participants
       const participants = await ConversationParticipant.findAll({
         where: { 

@@ -1,235 +1,21 @@
 const twilio = require('twilio');
-const crypto = require('crypto');
 
 class TwilioService {
   constructor() {
-    // Only initialize Twilio client if credentials are provided and valid
-    if (process.env.TWILIO_ACCOUNT_SID && 
-        process.env.TWILIO_AUTH_TOKEN && 
-        process.env.TWILIO_ACCOUNT_SID.startsWith('AC')) {
-      try {
-        this.client = twilio(
-          process.env.TWILIO_ACCOUNT_SID,
-          process.env.TWILIO_AUTH_TOKEN
-        );
-        this.conversationsClient = this.client.conversations;
-        this.phoneNumber = process.env.TWILIO_PHONE_NUMBER;
-        this.conversationsServiceSid = process.env.TWILIO_CONVERSATIONS_SERVICE_SID;
-        
-        console.log('Twilio client initialized successfully');
-        console.log(`Phone Number: ${this.phoneNumber || 'Not set'}`);
-        console.log(`Conversations Service SID: ${this.conversationsServiceSid || 'Not set'}`);
-        
-        if (!this.conversationsServiceSid) {
-          console.log('⚠️  WARNING: TWILIO_CONVERSATIONS_SERVICE_SID not set');
-          console.log('   Conversations API features will be disabled');
-          console.log('   SMS users will not be able to reply back to web users');
-        }
-      } catch (error) {
-        console.log('Failed to initialize Twilio client:', error.message);
-        this.client = null;
-        this.conversationsClient = null;
-        this.phoneNumber = null;
-        this.conversationsServiceSid = null;
-      }
+    // Initialize Twilio client
+    if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+      this.client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+      this.phoneNumber = process.env.TWILIO_PHONE_NUMBER;
+      console.log('Twilio client initialized successfully');
+      console.log('Phone Number:', this.phoneNumber || 'Not set');
     } else {
-      console.log('Twilio credentials not provided or invalid - SMS features will be disabled');
       this.client = null;
-      this.conversationsClient = null;
       this.phoneNumber = null;
-      this.conversationsServiceSid = null;
+      console.log('Twilio not configured - using mock mode');
     }
   }
 
-  // Create or get a conversation
-  async createOrGetConversation(uniqueName, friendlyName = null) {
-    if (!this.conversationsClient) {
-      console.log('Mock: Creating conversation:', uniqueName);
-      return { success: true, conversationId: `mock-conversation-${uniqueName}` };
-    }
-
-    try {
-      // Try to get existing conversation
-      let conversation;
-      try {
-        conversation = await this.conversationsClient.conversations(uniqueName).fetch();
-      } catch (error) {
-        // Conversation doesn't exist, create it
-        conversation = await this.conversationsClient.conversations.create({
-          uniqueName: uniqueName,
-          friendlyName: friendlyName || uniqueName
-        });
-      }
-
-      return {
-        success: true,
-        conversationId: conversation.sid,
-        conversation: conversation
-      };
-    } catch (error) {
-      console.error('Twilio conversation creation error:', error);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
-
-  // Add participant to conversation
-  async addParticipant(conversationId, identity, attributes = {}) {
-    if (!this.conversationsClient) {
-      console.log('Mock: Adding participant', identity, 'to conversation', conversationId);
-      return { success: true, participantId: `mock-participant-${identity}` };
-    }
-
-    try {
-      // Check if participant already exists
-      try {
-        const existingParticipant = await this.conversationsClient
-          .conversations(conversationId)
-          .participants(identity)
-          .fetch();
-        
-        return {
-          success: true,
-          participantId: existingParticipant.sid,
-          participant: existingParticipant
-        };
-      } catch (error) {
-        // Participant doesn't exist, create it
-        const participant = await this.conversationsClient
-          .conversations(conversationId)
-          .participants
-          .create({
-            identity: identity,
-            attributes: JSON.stringify(attributes)
-          });
-
-        return {
-          success: true,
-          participantId: participant.sid,
-          participant: participant
-        };
-      }
-    } catch (error) {
-      console.error('Twilio add participant error:', error);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
-
-  // Add SMS participant to conversation (for external SMS recipients)
-  async addSMSParticipant(conversationId, phoneNumber, attributes = {}) {
-    if (!this.conversationsClient) {
-      console.log('Mock: Adding SMS participant', phoneNumber, 'to conversation', conversationId);
-      return { success: true, participantId: `mock-sms-participant-${phoneNumber}` };
-    }
-
-    try {
-      // Check if SMS participant already exists
-      try {
-        const existingParticipant = await this.conversationsClient
-          .conversations(conversationId)
-          .participants
-          .list({ identity: phoneNumber });
-        
-        if (existingParticipant.length > 0) {
-          return {
-            success: true,
-            participantId: existingParticipant[0].sid,
-            participant: existingParticipant[0]
-          };
-        }
-      } catch (error) {
-        // Participant doesn't exist, continue to create
-      }
-
-      // Create SMS participant using messaging binding
-      const participant = await this.conversationsClient
-        .conversations(conversationId)
-        .participants
-        .create({
-          messagingBinding: {
-            address: phoneNumber,
-            proxyAddress: this.phoneNumber
-          },
-          attributes: JSON.stringify(attributes)
-        });
-
-      return {
-        success: true,
-        participantId: participant.sid,
-        participant: participant
-      };
-    } catch (error) {
-      console.error('Twilio add SMS participant error:', error);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
-
-  // Send message to conversation
-  async sendMessage(conversationId, author, body, attributes = {}) {
-    if (!this.conversationsClient) {
-      console.log('Mock: Sending message to conversation', conversationId, 'from', author, ':', body);
-      return { success: true, messageId: `mock-message-${Date.now()}` };
-    }
-
-    try {
-      const message = await this.conversationsClient
-        .conversations(conversationId)
-        .messages
-        .create({
-          author: author,
-          body: body,
-          attributes: JSON.stringify(attributes)
-        });
-
-      return {
-        success: true,
-        messageId: message.sid,
-        message: message
-      };
-    } catch (error) {
-      console.error('Twilio send message error:', error);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
-
-  // Get conversation messages
-  async getMessages(conversationId, limit = 50) {
-    if (!this.conversationsClient) {
-      console.log('Mock: Getting messages from conversation', conversationId);
-      return { success: true, messages: [] };
-    }
-
-    try {
-      const messages = await this.conversationsClient
-        .conversations(conversationId)
-        .messages
-        .list({ limit: limit });
-
-      return {
-        success: true,
-        messages: messages
-      };
-    } catch (error) {
-      console.error('Twilio get messages error:', error);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
-
-  // Send SMS message (fallback for external SMS)
+  // Send SMS message (for external SMS)
   async sendSMS(to, message, metadata = {}) {
     // If Twilio is not configured, return a mock success response
     if (!this.client) {
@@ -331,6 +117,52 @@ class TwilioService {
     }
   }
 
+  // Direct SMS sending with specific "from" number (matches your curl format exactly)
+  async sendDirectSMSWithFrom(to, from, message) {
+    if (!this.client) {
+      console.log(`Mock direct SMS sent from ${from} to ${to}: ${message}`);
+      return {
+        success: true,
+        messageId: 'mock-message-id',
+        status: 'sent',
+        to: to,
+        from: from,
+        body: message
+      };
+    }
+
+    try {
+      const messageData = {
+        body: message,
+        to: to,
+        from: from  // Use the specific "from" number (virtual number)
+      };
+
+      console.log(`Sending SMS with format matching your curl command:`);
+      console.log(`  To: ${to}`);
+      console.log(`  From: ${from}`);
+      console.log(`  Body: ${message}`);
+
+      const result = await this.client.messages.create(messageData);
+      
+      return {
+        success: true,
+        messageId: result.sid,
+        status: result.status,
+        to: result.to,
+        from: result.from,
+        body: result.body
+      };
+    } catch (error) {
+      console.error('Twilio direct SMS error:', error);
+      return {
+        success: false,
+        error: error.message,
+        code: error.code
+      };
+    }
+  }
+
   // Send bulk SMS to multiple recipients
   async sendBulkSMS(recipients, message, metadata = {}) {
     const results = [];
@@ -383,7 +215,6 @@ class TwilioService {
 
       return {
         success: true,
-        sid: verificationCheck.sid,
         status: verificationCheck.status,
         valid: verificationCheck.status === 'approved'
       };
@@ -399,11 +230,14 @@ class TwilioService {
 
   // Get message status
   async getMessageStatus(messageId) {
+    if (!this.client) {
+      return { success: true, status: 'delivered' };
+    }
+
     try {
       const message = await this.client.messages(messageId).fetch();
       return {
         success: true,
-        messageId: message.sid,
         status: message.status,
         errorCode: message.errorCode,
         errorMessage: message.errorMessage
@@ -412,8 +246,7 @@ class TwilioService {
       console.error('Twilio get message status error:', error);
       return {
         success: false,
-        error: error.message,
-        code: error.code
+        error: error.message
       };
     }
   }
@@ -423,57 +256,21 @@ class TwilioService {
     try {
       const { From, To, Body, MessageSid } = req.body;
       
-      // Verify the request is from Twilio
+      console.log(`Incoming SMS from ${From} to ${To}: ${Body}`);
+      
+      // Verify webhook signature
       if (!this.verifyWebhookSignature(req)) {
-        return res.status(403).json({ error: 'Invalid signature' });
-      }
-
-      console.log('Incoming SMS:', { From, To, Body, MessageSid });
-
-      // Check if this is a message to a virtual phone number
-      const virtualPhoneService = require('./virtualPhoneService');
-      const recipientUser = await virtualPhoneService.getUserByVirtualNumber(To);
-      
-      if (recipientUser) {
-        // This is a message to an internal user's virtual number
-        const result = await virtualPhoneService.handleIncomingSMS(From, To, Body);
-        
-        if (result.success) {
-          console.log(`SMS delivered to internal user ${recipientUser.username}`);
-          
-          // Here you could emit a Socket.IO event to notify the web user
-          // const io = req.app.get('io');
-          // if (io) {
-          //   io.to(`user-${recipientUser.id}`).emit('new-sms', {
-          //     from: From,
-          //     message: Body,
-          //     timestamp: new Date()
-          //   });
-          // }
-        }
-      } else {
-        // This is a regular SMS (not to a virtual number)
-        const messageData = {
-          from: From,
-          to: To,
-          body: Body,
-          messageId: MessageSid,
-          timestamp: new Date()
-        };
-
-        console.log('Regular SMS received:', messageData);
-        
-        // Here you would typically:
-        // 1. Find the user by phone number
-        // 2. Find the group they're messaging
-        // 3. Save the message to database
-        // 4. Send to other group members via SMS or push notification
+        console.error('Invalid webhook signature');
+        return res.status(403).send('Forbidden');
       }
       
-      res.status(200).send();
+      // Process the incoming SMS
+      // You can implement your logic here to handle incoming messages
+      
+      res.status(200).send('OK');
     } catch (error) {
-      console.error('Incoming SMS webhook error:', error);
-      res.status(500).json({ error: 'Webhook processing error' });
+      console.error('Error handling incoming SMS:', error);
+      res.status(500).send('Internal Server Error');
     }
   }
 
@@ -482,63 +279,64 @@ class TwilioService {
     try {
       const { MessageSid, MessageStatus, ErrorCode, ErrorMessage } = req.body;
       
-      // Verify the request is from Twilio
-      if (!this.verifyWebhookSignature(req)) {
-        return res.status(403).json({ error: 'Invalid signature' });
-      }
-
-      // Update message status in database
-      const Message = require('../models/Message');
-      await Message.findOneAndUpdate(
-        { twilioMessageId: MessageSid },
-        { 
-          twilioStatus: MessageStatus,
-          ...(ErrorCode && { 'metadata.errorCode': ErrorCode }),
-          ...(ErrorMessage && { 'metadata.errorMessage': ErrorMessage })
-        }
-      );
-
       console.log(`Message ${MessageSid} status: ${MessageStatus}`);
+      if (ErrorCode) {
+        console.error(`Message ${MessageSid} error: ${ErrorCode} - ${ErrorMessage}`);
+      }
       
-      res.status(200).send();
+      // Verify webhook signature
+      if (!this.verifyWebhookSignature(req)) {
+        console.error('Invalid webhook signature');
+        return res.status(403).send('Forbidden');
+      }
+      
+      // Update message status in database if needed
+      // You can implement your logic here
+      
+      res.status(200).send('OK');
     } catch (error) {
-      console.error('Status callback webhook error:', error);
-      res.status(500).json({ error: 'Status callback processing error' });
+      console.error('Error handling status callback:', error);
+      res.status(500).send('Internal Server Error');
     }
   }
 
   // Verify webhook signature
   verifyWebhookSignature(req) {
-    const signature = req.headers['x-twilio-signature'];
-    const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
-    const params = req.body;
+    if (!process.env.TWILIO_AUTH_TOKEN) {
+      console.warn('TWILIO_AUTH_TOKEN not set, skipping signature verification');
+      return true;
+    }
 
+    const twilioSignature = req.headers['x-twilio-signature'];
+    const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+    
     return twilio.validateRequest(
       process.env.TWILIO_AUTH_TOKEN,
-      signature,
+      twilioSignature,
       url,
-      params
+      req.body
     );
   }
 
-  // Generate encryption key for messages
+  // Generate encryption key for message encryption
   generateEncryptionKey() {
-    return crypto.randomBytes(32).toString('hex');
+    return require('crypto').randomBytes(32).toString('hex');
   }
 
   // Encrypt message content
   encryptMessage(content, key) {
+    const crypto = require('crypto');
     const algorithm = 'aes-256-gcm';
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipher(algorithm, key);
     
+    const cipher = crypto.createCipher(algorithm, Buffer.from(key, 'hex'));
     let encrypted = cipher.update(content, 'utf8', 'hex');
     encrypted += cipher.final('hex');
     
     const authTag = cipher.getAuthTag();
     
     return {
-      encrypted,
+      encrypted: encrypted,
       iv: iv.toString('hex'),
       authTag: authTag.toString('hex')
     };
@@ -546,9 +344,10 @@ class TwilioService {
 
   // Decrypt message content
   decryptMessage(encryptedData, key) {
+    const crypto = require('crypto');
     const algorithm = 'aes-256-gcm';
-    const decipher = crypto.createDecipher(algorithm, key);
     
+    const decipher = crypto.createDecipher(algorithm, Buffer.from(key, 'hex'));
     decipher.setAuthTag(Buffer.from(encryptedData.authTag, 'hex'));
     
     let decrypted = decipher.update(encryptedData.encrypted, 'hex', 'utf8');

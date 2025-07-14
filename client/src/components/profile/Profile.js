@@ -54,6 +54,7 @@ const Profile = () => {
     lastName: '',
     email: '',
     phoneNumber: '',
+    virtualPhoneNumber: '',
     bio: '',
     location: '',
     avatar: null
@@ -79,6 +80,7 @@ const Profile = () => {
         lastName: response.data.user.lastName || '',
         email: response.data.user.email || '',
         phoneNumber: response.data.user.phoneNumber || '',
+        virtualPhoneNumber: response.data.user.virtualPhoneNumber || '',
         bio: response.data.user.bio || '',
         location: response.data.user.location || '',
         avatar: null
@@ -175,6 +177,27 @@ const Profile = () => {
     } catch (error) {
       console.error('Error updating password:', error);
       toast.error('Failed to update password');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAssignVirtualNumber = async () => {
+    try {
+      setSaving(true);
+      const response = await axios.post('/api/users/virtual-number');
+      
+      if (response.data.virtualNumber) {
+        setFormData(prev => ({
+          ...prev,
+          virtualPhoneNumber: response.data.virtualNumber
+        }));
+        toast.success('Virtual number assigned successfully!');
+        fetchProfile(); // Refresh profile data
+      }
+    } catch (error) {
+      console.error('Error assigning virtual number:', error);
+      toast.error('Failed to assign virtual number');
     } finally {
       setSaving(false);
     }
@@ -313,17 +336,41 @@ const Profile = () => {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12}>
+                      <Grid item xs={12} sm={6}>
                         <TextField
                           fullWidth
-                          label="Phone"
+                          label="Personal Phone"
                           name="phoneNumber"
                           value={formData.phoneNumber}
                           onChange={handleInputChange}
+                          placeholder="Your personal phone number"
                           InputProps={{
                             startAdornment: <Phone sx={{ mr: 1, color: 'text.secondary' }} />
                           }}
                         />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="SMS Phone (Virtual)"
+                          name="virtualPhoneNumber"
+                          value={formData.virtualPhoneNumber}
+                          disabled
+                          helperText="System-assigned number for SMS messaging"
+                          InputProps={{
+                            startAdornment: <Phone sx={{ mr: 1, color: 'text.secondary' }} />
+                          }}
+                        />
+                        {!formData.virtualPhoneNumber && (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={handleAssignVirtualNumber}
+                            sx={{ mt: 1 }}
+                          >
+                            Assign Virtual Number
+                          </Button>
+                        )}
                       </Grid>
                       <Grid item xs={12}>
                         <TextField

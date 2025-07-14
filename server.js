@@ -12,8 +12,14 @@ const messageRoutes = require('./routes/messages');
 const userRoutes = require('./routes/users');
 const contactRoutes = require('./routes/contacts');
 const conversationRoutes = require('./routes/conversations');
+const webhookRoutes = require('./routes/webhooks');
 
 const app = express();
+
+// Trust proxy for rate limiting in production
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
 
 // Security middleware
 app.use(helmet());
@@ -118,6 +124,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/contacts', contactRoutes);
 app.use('/api/conversations', conversationRoutes);
+app.use('/api/webhooks', webhookRoutes);
 
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
