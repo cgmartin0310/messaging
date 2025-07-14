@@ -121,25 +121,30 @@ const Profile = () => {
     e.preventDefault();
     try {
       setSaving(true);
-      const formDataToSend = new FormData();
       
-      Object.keys(formData).forEach(key => {
-        if (formData[key] !== null) {
-          formDataToSend.append(key, formData[key]);
+      // Send as JSON instead of FormData
+      const profileData = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phoneNumber: formData.phoneNumber
+      };
+
+      console.log('Sending profile data:', profileData);
+
+      const response = await axios.put('/api/users/profile', profileData, {
+        headers: {
+          'Content-Type': 'application/json'
         }
       });
 
-      const response = await axios.put('/api/users/profile', formDataToSend, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      console.log('Profile update response:', response.data);
 
       updateUser(response.data.user);
       setProfile(response.data.user);
       toast.success('Profile updated successfully!');
     } catch (error) {
       console.error('Error updating profile:', error);
+      console.error('Error details:', error.response?.data);
       toast.error('Failed to update profile');
     } finally {
       setSaving(false);

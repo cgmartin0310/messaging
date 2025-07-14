@@ -37,13 +37,27 @@ router.put('/profile', authenticateToken, async (req, res) => {
   try {
     const { firstName, lastName, phoneNumber, avatar } = req.body;
     
+    console.log('Profile update request body:', req.body);
+    console.log('Extracted values:', { firstName, lastName, phoneNumber, avatar });
+    
     const user = await User.findByPk(req.user.id);
-    await user.update({
+    console.log('Current user phone number:', user.phoneNumber);
+    
+    const updateData = {
       firstName: firstName !== undefined ? firstName : user.firstName,
       lastName: lastName !== undefined ? lastName : user.lastName,
       phoneNumber: phoneNumber !== undefined ? phoneNumber : user.phoneNumber,
       avatar: avatar !== undefined ? avatar : user.avatar
-    });
+    };
+    
+    console.log('Update data:', updateData);
+    
+    await user.update(updateData);
+    
+    // Refresh user data from database
+    await user.reload();
+    
+    console.log('Updated user phone number:', user.phoneNumber);
     
     res.json({
       message: 'Profile updated successfully',
