@@ -47,7 +47,6 @@ const User = sequelize.define('User', {
   virtualPhoneNumber: {
     type: DataTypes.STRING(20),
     allowNull: true,
-    unique: true,
     validate: {
       is: /^\+?[1-9]\d{1,14}$/
     },
