@@ -43,15 +43,21 @@ const Chat = () => {
   const fetchConversationAndMessages = async () => {
     try {
       setLoading(true);
+      console.log('Fetching conversation and messages for:', conversationId);
+      
       const [conversationRes, messagesRes] = await Promise.all([
         axios.get(`/api/conversations/${conversationId}`),
         axios.get(`/api/messages/${conversationId}`)
       ]);
 
+      console.log('Conversation response:', conversationRes.data);
+      console.log('Messages response:', messagesRes.data);
+
       setConversation(conversationRes.data);
       setMessages(messagesRes.data.reverse()); // Show newest first
     } catch (error) {
       console.error('Error fetching chat data:', error);
+      console.error('Error details:', error.response?.data);
       toast.error('Failed to load chat');
       navigate('/dashboard');
     } finally {
