@@ -45,7 +45,7 @@ const Chat = () => {
       setLoading(true);
       const [conversationRes, messagesRes] = await Promise.all([
         axios.get(`/api/conversations/${conversationId}`),
-        axios.get(`/api/conversations/${conversationId}/messages`)
+        axios.get(`/api/messages/${conversationId}`)
       ]);
 
       setConversation(conversationRes.data);
@@ -73,7 +73,7 @@ const Chat = () => {
 
     try {
       setSending(true);
-      const response = await axios.post(`/api/conversations/${conversationId}/messages`, {
+      const response = await axios.post(`/api/messages/${conversationId}`, {
         content: newMessage.trim()
       });
 
