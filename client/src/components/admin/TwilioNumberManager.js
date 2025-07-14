@@ -48,8 +48,8 @@ const TwilioNumberManager = () => {
 
   const handleAddNumber = async () => {
     try {
-      if (!newNumber.match(/^\+1[0-9]{10}$/)) {
-        toast.error('Invalid phone number format. Must be +1XXXXXXXXXX');
+      if (!newNumber.trim()) {
+        toast.error('Please enter a phone number');
         return;
       }
 
@@ -186,8 +186,8 @@ const TwilioNumberManager = () => {
             variant="outlined"
             value={newNumber}
             onChange={(e) => setNewNumber(e.target.value)}
-            placeholder="+19104442405"
-            helperText="Enter the Twilio phone number you want to add to the pool"
+            placeholder="+19104442405 or 9104442405"
+            helperText="Enter your Twilio phone number (will be formatted automatically)"
           />
         </DialogContent>
         <DialogActions>

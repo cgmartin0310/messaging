@@ -53,27 +53,48 @@ class TwilioNumberService {
   // Add a new Twilio number to the pool
   async addNumber(phoneNumber) {
     try {
-      // Validate phone number format
-      if (!phoneNumber.match(/^\+1[0-9]{10}$/)) {
-        throw new Error('Invalid phone number format. Must be +1XXXXXXXXXX');
+      // Clean and validate phone number format
+      let cleanNumber = phoneNumber.trim();
+      
+      // Remove any non-digit characters except +
+      cleanNumber = cleanNumber.replace(/[^\d+]/g, '');
+      
+      // Ensure it starts with +1
+      if (!cleanNumber.startsWith('+1')) {
+        if (cleanNumber.startsWith('1')) {
+          cleanNumber = '+' + cleanNumber;
+        } else if (cleanNumber.startsWith('+')) {
+          // Already has +, just ensure it's +1
+          if (!cleanNumber.startsWith('+1')) {
+            cleanNumber = '+1' + cleanNumber.substring(1);
+          }
+        } else {
+          // Add +1 prefix
+          cleanNumber = '+1' + cleanNumber;
+        }
+      }
+      
+      // Validate final format (must be +1 followed by exactly 10 digits)
+      if (!cleanNumber.match(/^\+1[0-9]{10}$/)) {
+        throw new Error(`Invalid phone number format. Expected +1XXXXXXXXXX, got: ${cleanNumber}`);
       }
 
       // Check if number is already assigned
       const existingUser = await User.findOne({
-        where: { virtualPhoneNumber: phoneNumber }
+        where: { virtualPhoneNumber: cleanNumber }
       });
 
       if (existingUser) {
         throw new Error('Phone number is already assigned to a user');
       }
 
-      this.availableNumbers.add(phoneNumber);
-      console.log(`Added Twilio number: ${phoneNumber}`);
+      this.availableNumbers.add(cleanNumber);
+      console.log(`Added Twilio number: ${cleanNumber}`);
       
       return {
         success: true,
         message: 'Twilio number added successfully',
-        number: phoneNumber
+        number: cleanNumber
       };
     } catch (error) {
       console.error('Error adding Twilio number:', error);
@@ -121,13 +142,34 @@ class TwilioNumberService {
         throw new Error('User not found');
       }
 
-      // Validate phone number format
-      if (!phoneNumber.match(/^\+1[0-9]{10}$/)) {
-        throw new Error('Invalid phone number format. Must be +1XXXXXXXXXX');
+      // Clean and validate phone number format
+      let cleanNumber = phoneNumber.trim();
+      
+      // Remove any non-digit characters except +
+      cleanNumber = cleanNumber.replace(/[^\d+]/g, '');
+      
+      // Ensure it starts with +1
+      if (!cleanNumber.startsWith('+1')) {
+        if (cleanNumber.startsWith('1')) {
+          cleanNumber = '+' + cleanNumber;
+        } else if (cleanNumber.startsWith('+')) {
+          // Already has +, just ensure it's +1
+          if (!cleanNumber.startsWith('+1')) {
+            cleanNumber = '+1' + cleanNumber.substring(1);
+          }
+        } else {
+          // Add +1 prefix
+          cleanNumber = '+1' + cleanNumber;
+        }
+      }
+      
+      // Validate final format (must be +1 followed by exactly 10 digits)
+      if (!cleanNumber.match(/^\+1[0-9]{10}$/)) {
+        throw new Error(`Invalid phone number format. Expected +1XXXXXXXXXX, got: ${cleanNumber}`);
       }
 
       // Check if number is available
-      if (!this.availableNumbers.has(phoneNumber)) {
+      if (!this.availableNumbers.has(cleanNumber)) {
         throw new Error('Phone number is not available or already assigned');
       }
 
@@ -139,16 +181,16 @@ class TwilioNumberService {
       }
 
       // Assign new number
-      await user.update({ virtualPhoneNumber: phoneNumber });
-      this.assignedNumbers.set(userId, phoneNumber);
-      this.availableNumbers.delete(phoneNumber);
+      await user.update({ virtualPhoneNumber: cleanNumber });
+      this.assignedNumbers.set(userId, cleanNumber);
+      this.availableNumbers.delete(cleanNumber);
 
-      console.log(`Assigned ${phoneNumber} to user ${user.username}`);
+      console.log(`Assigned ${cleanNumber} to user ${user.username}`);
       
       return {
         success: true,
         message: 'Twilio number assigned successfully',
-        number: phoneNumber
+        number: cleanNumber
       };
     } catch (error) {
       console.error('Error assigning Twilio number:', error);

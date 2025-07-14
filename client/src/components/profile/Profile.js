@@ -203,16 +203,7 @@ const Profile = () => {
     }
   };
 
-  const handleRefreshNumbers = async () => {
-    try {
-      // Initialize the Twilio number pool
-      await axios.post('/api/twilio-numbers/init');
-      toast.success('Twilio numbers refreshed!');
-    } catch (error) {
-      console.error('Error refreshing numbers:', error);
-      toast.error('Failed to refresh numbers');
-    }
-  };
+
 
   if (loading) {
     return (
@@ -387,14 +378,9 @@ const Profile = () => {
                             This is your assigned Twilio number for SMS messaging
                           </Typography>
                         )}
-                        <Button
-                          variant="text"
-                          size="small"
-                          onClick={handleRefreshNumbers}
-                          sx={{ mt: 1 }}
-                        >
-                          Refresh Available Numbers
-                        </Button>
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                          Contact admin to add more Twilio numbers to the pool
+                        </Typography>
                         {formData.virtualPhoneNumber && (
                           <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
                             This is your assigned Twilio number for SMS messaging
