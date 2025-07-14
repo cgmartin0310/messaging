@@ -56,8 +56,16 @@ const Message = sequelize.define('Message', {
       key: 'id'
     }
   },
+  senderId: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    references: {
+      model: 'users',
+      key: 'id'
+    }
+  },
   twilioStatus: {
-    type: DataTypes.ENUM('pending', 'sent', 'delivered', 'failed'),
+    type: DataTypes.ENUM('pending', 'sent', 'delivered', 'failed', 'received'),
     defaultValue: 'pending'
   },
   isEdited: {
