@@ -13,7 +13,7 @@ class VirtualPhoneService {
   // Load existing virtual numbers from database
   async loadExistingNumbers() {
     try {
-      await twilioNumberService.loadNumbers();
+      await twilioNumberService.reloadNumbers();
       console.log('Twilio numbers loaded successfully');
     } catch (error) {
       console.error('Error loading existing virtual numbers:', error);

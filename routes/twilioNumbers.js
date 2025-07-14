@@ -109,6 +109,33 @@ router.get('/available', authenticateToken, async (req, res) => {
   }
 });
 
+// Initialize with main Twilio number (for testing)
+router.post('/init', authenticateToken, async (req, res) => {
+  try {
+    const mainNumber = process.env.TWILIO_PHONE_NUMBER;
+    if (!mainNumber) {
+      return res.status(400).json({ error: 'TWILIO_PHONE_NUMBER not set' });
+    }
+
+    const result = await twilioNumberService.addNumber(mainNumber);
+    
+    if (result.success) {
+      res.json({
+        message: 'Twilio number pool initialized',
+        number: result.number
+      });
+    } else {
+      res.status(400).json({
+        error: 'Failed to initialize Twilio number pool',
+        message: result.error
+      });
+    }
+  } catch (error) {
+    console.error('Error initializing Twilio number pool:', error);
+    res.status(500).json({ error: 'Failed to initialize Twilio number pool' });
+  }
+});
+
 // Get assigned Twilio numbers
 router.get('/assigned', authenticateToken, async (req, res) => {
   try {

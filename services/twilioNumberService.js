@@ -4,7 +4,10 @@ class TwilioNumberService {
   constructor() {
     this.availableNumbers = new Set();
     this.assignedNumbers = new Map(); // userId -> phoneNumber
-    this.loadNumbers();
+    // Load numbers asynchronously
+    this.loadNumbers().catch(error => {
+      console.error('Error loading Twilio numbers:', error);
+    });
   }
 
   // Load available Twilio numbers from environment or database
@@ -159,6 +162,13 @@ class TwilioNumberService {
   // Get available Twilio numbers
   getAvailableNumbers() {
     return Array.from(this.availableNumbers);
+  }
+
+  // Reload numbers from environment and database
+  async reloadNumbers() {
+    this.availableNumbers.clear();
+    this.assignedNumbers.clear();
+    await this.loadNumbers();
   }
 
   // Get assigned numbers
