@@ -50,7 +50,7 @@ const Profile = () => {
     firstName: '',
     lastName: '',
     email: '',
-    phone: '',
+    phoneNumber: '',
     bio: '',
     location: '',
     avatar: null
@@ -75,7 +75,7 @@ const Profile = () => {
         firstName: response.data.user.firstName || '',
         lastName: response.data.user.lastName || '',
         email: response.data.user.email || '',
-        phone: response.data.user.phone || '',
+        phoneNumber: response.data.user.phoneNumber || '',
         bio: response.data.user.bio || '',
         location: response.data.user.location || '',
         avatar: null
@@ -301,8 +301,8 @@ const Profile = () => {
                         <TextField
                           fullWidth
                           label="Phone"
-                          name="phone"
-                          value={formData.phone}
+                          name="phoneNumber"
+                          value={formData.phoneNumber}
                           onChange={handleInputChange}
                           InputProps={{
                             startAdornment: <Phone sx={{ mr: 1, color: 'text.secondary' }} />
