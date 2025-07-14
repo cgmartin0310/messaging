@@ -214,15 +214,7 @@ router.get('/:conversationId', authenticateToken, async (req, res) => {
         {
           model: ConversationParticipant,
           as: 'participants',
-          where: { isActive: true },
-          include: [
-            {
-              model: User,
-              as: 'user',
-              attributes: ['id', 'username', 'firstName', 'lastName', 'avatar'],
-              required: false
-            }
-          ]
+          where: { isActive: true }
         }
       ]
     });
@@ -252,14 +244,7 @@ router.get('/:conversationId', authenticateToken, async (req, res) => {
           phoneNumber: p.phoneNumber,
           displayName: p.displayName,
           role: p.role,
-          joinedAt: p.joinedAt,
-          user: p.user ? {
-            id: p.user.id,
-            username: p.user.username,
-            firstName: p.user.firstName,
-            lastName: p.user.lastName,
-            avatar: p.user.avatar
-          } : null
+          joinedAt: p.joinedAt
         }))
       }
     });
