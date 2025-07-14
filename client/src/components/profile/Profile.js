@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { 
@@ -13,7 +14,8 @@ import {
   LocationOn,
   Security,
   Visibility,
-  VisibilityOff
+  VisibilityOff,
+  ArrowBack
 } from '@mui/icons-material';
 import { 
   AppBar, 
@@ -37,6 +39,7 @@ import LoadingSpinner from '../common/LoadingSpinner';
 
 const Profile = () => {
   const { user, updateUser } = useAuth();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -185,6 +188,14 @@ const Profile = () => {
       {/* Header */}
       <AppBar position="static" elevation={1}>
         <Toolbar>
+          <IconButton
+            edge="start"
+            color="inherit"
+            onClick={() => navigate('/dashboard')}
+            sx={{ mr: 2 }}
+          >
+            <ArrowBack />
+          </IconButton>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Profile Settings
           </Typography>

@@ -39,10 +39,10 @@ router.put('/profile', authenticateToken, async (req, res) => {
     
     const user = await User.findByPk(req.user.id);
     await user.update({
-      firstName: firstName || user.firstName,
-      lastName: lastName || user.lastName,
-      phoneNumber: phoneNumber || user.phoneNumber,
-      avatar: avatar || user.avatar
+      firstName: firstName !== undefined ? firstName : user.firstName,
+      lastName: lastName !== undefined ? lastName : user.lastName,
+      phoneNumber: phoneNumber !== undefined ? phoneNumber : user.phoneNumber,
+      avatar: avatar !== undefined ? avatar : user.avatar
     });
     
     res.json({
