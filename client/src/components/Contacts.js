@@ -62,11 +62,22 @@ const Contacts = () => {
   const [showConsentDialog, setShowConsentDialog] = useState(false);
   const [selectedContact, setSelectedContact] = useState(null);
   const [consentForm, setConsentForm] = useState({ patientId: '', consentGiven: false, notes: '' });
+  const [patients, setPatients] = useState([]);
 
   useEffect(() => {
+    fetchPatients();
     fetchContacts();
     fetchUsers();
   }, []);
+
+  const fetchPatients = async () => {
+    try {
+      const response = await axios.get('/api/users');
+      setPatients(response.data.users || []);
+    } catch (error) {
+      toast.error('Failed to load patients');
+    }
+  };
 
   const fetchContacts = async () => {
     try {
@@ -449,11 +460,8 @@ const Contacts = () => {
           <FormControl fullWidth sx={{ mb: 2 }}>
             <InputLabel>Patient</InputLabel>
             <Select value={consentForm.patientId} onChange={e => setConsentForm({ ...consentForm, patientId: e.target.value })}>
-              {/* Assuming 'patients' state exists elsewhere or is fetched */}
-              {/* For now, using a placeholder or a dummy list */}
               <MenuItem value="">Select a patient</MenuItem>
-              <MenuItem value="1">John Doe</MenuItem>
-              <MenuItem value="2">Jane Smith</MenuItem>
+              {patients.map(p => <MenuItem key={p.id} value={p.id}>{p.firstName} {p.lastName}</MenuItem>)}
             </Select>
           </FormControl>
           <FormControlLabel

@@ -74,9 +74,10 @@ const Conversations = () => {
 
   const fetchPatients = async () => {
     try {
-      const response = await axios.get('/api/users'); // Adjust if patients are separate
+      const response = await axios.get('/api/users');
       setPatients(response.data.users || []);
     } catch (error) {
+      console.error('Error fetching patients:', error);
       toast.error('Failed to load patients');
     }
   };

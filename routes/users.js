@@ -4,6 +4,20 @@ const { authenticateToken } = require('../middleware/auth');
 const { User } = require('../models');
 const virtualPhoneService = require('../services/virtualPhoneService');
 
+// List active users (for patient selection)
+router.get('/', authenticateToken, async (req, res) => {
+  try {
+    const users = await User.findAll({
+      where: { isActive: true },
+      attributes: ['id', 'firstName', 'lastName']
+    });
+    res.json({ users });
+  } catch (error) {
+    console.error('Error listing users:', error);
+    res.status(500).json({ error: 'Failed to list users' });
+  }
+});
+
 // Get current user profile
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
