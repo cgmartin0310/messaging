@@ -190,9 +190,18 @@ Conversation.createSMSConversation = async function(userId, externalPhoneNumber,
     throw new Error('Failed to assign virtual number to user');
   }
   
+  // Normalize phone numbers - ensure they have + prefix
+  const normalizedExternalPhone = externalPhoneNumber.startsWith('+') 
+    ? externalPhoneNumber 
+    : `+${externalPhoneNumber}`;
+  
+  const normalizedVirtualPhone = userVirtualResult.virtualNumber.startsWith('+')
+    ? userVirtualResult.virtualNumber
+    : `+${userVirtualResult.virtualNumber}`;
+  
   // Create conversation
   const conversation = await this.create({
-    name: `SMS: ${user.firstName} & ${recipientName || externalPhoneNumber}`,
+    name: `SMS: ${user.firstName} & ${recipientName || normalizedExternalPhone}`,
     conversationType: 'sms',
     isActive: true
   });
@@ -203,16 +212,16 @@ Conversation.createSMSConversation = async function(userId, externalPhoneNumber,
       ConversationId: conversation.id,
       participantType: 'virtual',
       identity: user.id,
-      phoneNumber: userVirtualResult.virtualNumber,
+      phoneNumber: normalizedVirtualPhone,
       displayName: `${user.firstName} ${user.lastName}`,
       role: 'member'
     }),
     ConversationParticipant.create({
       ConversationId: conversation.id,
       participantType: 'sms',
-      identity: externalPhoneNumber,
-      phoneNumber: externalPhoneNumber,
-      displayName: recipientName || externalPhoneNumber,
+      identity: externalPhoneNumber, // Keep original for backward compatibility
+      phoneNumber: normalizedExternalPhone,
+      displayName: recipientName || normalizedExternalPhone,
       role: 'member'
     })
   ]);
