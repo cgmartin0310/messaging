@@ -13,7 +13,8 @@ import {
   Notifications,
   Chat,
   Message,
-  Dashboard as DashboardIcon
+  Dashboard as DashboardIcon,
+  Group
 } from '@mui/icons-material';
 import { 
   AppBar, 
@@ -213,6 +214,18 @@ const Dashboard = () => {
                   sx={{ py: 2 }}
                 >
                   Start New Chat
+                </Button>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Button
+                  component={Link}
+                  to="/groups"
+                  variant="outlined"
+                  fullWidth
+                  startIcon={<Group />}
+                  sx={{ py: 2 }}
+                >
+                  Manage Groups
                 </Button>
               </Grid>
             </Grid>

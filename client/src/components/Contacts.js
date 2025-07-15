@@ -34,9 +34,11 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  IconButton
 } from '@mui/material';
 import LoadingSpinner from './common/LoadingSpinner';
+import { Checkbox, FormControlLabel } from '@mui/material';
 
 const Contacts = () => {
   const [contacts, setContacts] = useState([]);
@@ -55,6 +57,11 @@ const Contacts = () => {
     email: '',
     notes: ''
   });
+
+  // Add state for consents, showConsentDialog, selectedContact, consentForm { patientId, consentGiven, notes }
+  const [showConsentDialog, setShowConsentDialog] = useState(false);
+  const [selectedContact, setSelectedContact] = useState(null);
+  const [consentForm, setConsentForm] = useState({ patientId: '', consentGiven: false, notes: '' });
 
   useEffect(() => {
     fetchContacts();
@@ -324,6 +331,7 @@ const Contacts = () => {
                     >
                       {deletingContact === contact.id ? 'Deleting...' : 'Delete'}
                     </Button>
+                    <IconButton onClick={() => { setSelectedContact(contact); setShowConsentDialog(true); }}><Note /></IconButton>
                   </Box>
                 </ListItem>
               ))}
@@ -431,6 +439,40 @@ const Contacts = () => {
               Add Contact
             </Button>
           )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Record Consent Dialog */}
+      <Dialog open={showConsentDialog} onClose={() => setShowConsentDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Record Consent for {selectedContact?.displayName}</DialogTitle>
+        <DialogContent>
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>Patient</InputLabel>
+            <Select value={consentForm.patientId} onChange={e => setConsentForm({ ...consentForm, patientId: e.target.value })}>
+              {/* Assuming 'patients' state exists elsewhere or is fetched */}
+              {/* For now, using a placeholder or a dummy list */}
+              <MenuItem value="">Select a patient</MenuItem>
+              <MenuItem value="1">John Doe</MenuItem>
+              <MenuItem value="2">Jane Smith</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControlLabel
+            control={<Checkbox checked={consentForm.consentGiven} onChange={e => setConsentForm({ ...consentForm, consentGiven: e.target.checked })} />}
+            label="Consent Given"
+          />
+          <TextField fullWidth multiline rows={3} label="Notes" value={consentForm.notes} onChange={e => setConsentForm({ ...consentForm, notes: e.target.value })} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowConsentDialog(false)}>Cancel</Button>
+          <Button onClick={async () => {
+            try {
+              await axios.post('/api/consents', { contactId: selectedContact.id, patientId: consentForm.patientId, consentGiven: consentForm.consentGiven, notes: consentForm.notes });
+              toast.success('Consent recorded');
+              setShowConsentDialog(false);
+            } catch (error) {
+              toast.error('Failed to record consent');
+            }
+          }} variant="contained">Save</Button>
         </DialogActions>
       </Dialog>
     </Box>

@@ -14,6 +14,8 @@ const contactRoutes = require('./routes/contacts');
 const conversationRoutes = require('./routes/conversations');
 const webhookRoutes = require('./routes/webhooks');
 const twilioNumberRoutes = require('./routes/twilioNumbers');
+const groupRoutes = require('./routes/groups');
+const consentRoutes = require('./routes/consents');
 
 const app = express();
 
@@ -127,6 +129,8 @@ app.use('/api/contacts', contactRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/twilio-numbers', twilioNumberRoutes);
+app.use('/api/groups', groupRoutes);
+app.use('/api/consents', consentRoutes);
 
 // Health check endpoint
 app.get('/api/health', async (req, res) => {

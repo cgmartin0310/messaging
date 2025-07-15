@@ -26,7 +26,15 @@ import {
   Card,
   CardContent,
   InputAdornment,
-  Chip
+  Chip,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import LoadingSpinner from './common/LoadingSpinner';
 
@@ -36,8 +44,15 @@ const Conversations = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [deletingConversation, setDeletingConversation] = useState(null);
 
+  // Add state for patients and selectedPatientId
+  const [patients, setPatients] = useState([]);
+  const [selectedPatientId, setSelectedPatientId] = useState('');
+  const [showCreateGroup, setShowCreateGroup] = useState(false); // State for group creation dialog
+  const [newGroup, setNewGroup] = useState({ name: '' }); // State for new group details
+
   useEffect(() => {
     fetchConversations();
+    fetchPatients(); // Fetch patients on component mount
   }, []);
 
   const fetchConversations = async () => {
@@ -54,6 +69,15 @@ const Conversations = () => {
       setConversations([]); // Set empty array on error
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPatients = async () => {
+    try {
+      const response = await axios.get('/api/users'); // Adjust if patients are separate
+      setPatients(response.data.users || []);
+    } catch (error) {
+      toast.error('Failed to load patients');
     }
   };
 
@@ -142,6 +166,26 @@ const Conversations = () => {
       toast.error('Failed to delete conversation');
     } finally {
       setDeletingConversation(null);
+    }
+  };
+
+  const handleCreateGroup = async () => {
+    try {
+      const response = await axios.post('/api/conversations/group', {
+        name: newGroup.name,
+        patientId: selectedPatientId || null
+      });
+      toast.success('Group conversation created successfully');
+      setShowCreateGroup(false);
+      setNewGroup({ name: '' });
+      setSelectedPatientId('');
+      fetchConversations();
+    } catch (error) {
+      if (error.response?.data?.error.includes('consent')) {
+        toast.error('Cannot add participants without consent for this patient');
+      } else {
+        toast.error('Failed to create group');
+      }
     }
   };
 
@@ -291,6 +335,34 @@ const Conversations = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Group Conversation Creation Dialog */}
+      <Dialog open={showCreateGroup} onClose={() => setShowCreateGroup(false)}>
+        <DialogTitle>Create New Group Conversation</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Group Name"
+            variant="outlined"
+            value={newGroup.name}
+            onChange={(e) => setNewGroup({ ...newGroup, name: e.target.value })}
+            sx={{ mb: 2 }}
+          />
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>Patient (for Compliance)</InputLabel>
+            <Select value={selectedPatientId} onChange={e => setSelectedPatientId(e.target.value)}>
+              <MenuItem value="">None</MenuItem>
+              {patients.map(patient => (
+                <MenuItem key={patient.id} value={patient.id}>{patient.firstName} {patient.lastName}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowCreateGroup(false)} color="primary">Cancel</Button>
+          <Button onClick={handleCreateGroup} variant="contained" color="primary">Create Group</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
