@@ -1,6 +1,6 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const authenticateToken = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 const { Group, GroupContact } = require('../models/Group');
 const Contact = require('../models/Contact');
 const router = express.Router();
