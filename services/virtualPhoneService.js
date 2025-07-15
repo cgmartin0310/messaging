@@ -101,7 +101,7 @@ class VirtualPhoneService {
       }
 
       // Send SMS using the sender's virtual number as From
-      const result = await twilioService.sendSMS(
+      const result = await twilioService.sendDirectSMSWithFrom(
         toUser.virtualPhoneNumber,
         message,
         { from: fromUser.virtualPhoneNumber }
@@ -142,7 +142,7 @@ class VirtualPhoneService {
       }
 
       // Send SMS using the sender's virtual number as From
-      const result = await twilioService.sendSMS(
+      const result = await twilioService.sendDirectSMSWithFrom(
         toPhoneNumber,
         message,
         { from: fromUser.virtualPhoneNumber }

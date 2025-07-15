@@ -40,7 +40,7 @@ async function testSMSDelivery(phoneNumber, message = 'Test SMS from messaging a
   
   console.log('\n--- Sending Test SMS ---');
   try {
-    const result = await twilioService.sendSMS(formattedNumber, message);
+    const result = await twilioService.sendDirectSMSWithFrom(formattedNumber, message);
     
     console.log('SMS Result:', JSON.stringify(result, null, 2));
     
