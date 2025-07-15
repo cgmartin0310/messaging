@@ -100,17 +100,17 @@ class VirtualPhoneService {
         toUser.virtualPhoneNumber = toVirtualResult.virtualNumber;
       }
 
-      // Send SMS using the user's assigned Twilio number as "from"
-      const result = await twilioService.sendDirectSMSWithFrom(
+      // Send SMS using the sender's virtual number as From
+      const result = await twilioService.sendSMS(
         toUser.virtualPhoneNumber,
-        fromUser.virtualPhoneNumber,
-        `[${fromUser.firstName} ${fromUser.lastName}]: ${message}`
+        message,
+        { from: fromUser.virtualPhoneNumber }
       );
 
       return {
         success: result.success,
         messageId: result.messageId,
-        from: fromUser.virtualPhoneNumber, // Use user's assigned Twilio number
+        from: fromUser.virtualPhoneNumber,
         to: toUser.virtualPhoneNumber,
         message: message
       };
@@ -141,17 +141,17 @@ class VirtualPhoneService {
         fromUser.virtualPhoneNumber = virtualResult.virtualNumber;
       }
 
-      // Send SMS using the user's assigned Twilio number as "from"
-      const result = await twilioService.sendDirectSMSWithFrom(
+      // Send SMS using the sender's virtual number as From
+      const result = await twilioService.sendSMS(
         toPhoneNumber,
-        fromUser.virtualPhoneNumber,
-        `[${fromUser.firstName} ${fromUser.lastName}]: ${message}`
+        message,
+        { from: fromUser.virtualPhoneNumber }
       );
 
       return {
         success: result.success,
         messageId: result.messageId,
-        from: fromUser.virtualPhoneNumber, // Use user's assigned Twilio number
+        from: fromUser.virtualPhoneNumber,
         to: toPhoneNumber,
         message: message
       };

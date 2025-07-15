@@ -1,4 +1,5 @@
 const { User } = require('../models');
+const twilioService = require('./twilioService'); // Assuming twilioService.js is in the same directory
 
 class TwilioNumberService {
   constructor() {
@@ -134,70 +135,71 @@ class TwilioNumberService {
     }
   }
 
-  // Assign a Twilio number to a user
+  // Assign a number to a user
   async assignNumberToUser(userId, phoneNumber) {
     try {
       const user = await User.findByPk(userId);
       if (!user) {
         throw new Error('User not found');
       }
-
-      // Clean and validate phone number format
-      let cleanNumber = phoneNumber.trim();
       
-      // Remove any non-digit characters except +
-      cleanNumber = cleanNumber.replace(/[^\d+]/g, '');
-      
-      // Ensure it starts with +1
-      if (!cleanNumber.startsWith('+1')) {
-        if (cleanNumber.startsWith('1')) {
-          cleanNumber = '+' + cleanNumber;
-        } else if (cleanNumber.startsWith('+')) {
-          // Already has +, just ensure it's +1
-          if (!cleanNumber.startsWith('+1')) {
-            cleanNumber = '+1' + cleanNumber.substring(1);
-          }
-        } else {
-          // Add +1 prefix
-          cleanNumber = '+1' + cleanNumber;
-        }
-      }
-      
-      // Validate final format (must be +1 followed by exactly 10 digits)
-      if (!cleanNumber.match(/^\+1[0-9]{10}$/)) {
-        throw new Error(`Invalid phone number format. Expected +1XXXXXXXXXX, got: ${cleanNumber}`);
-      }
-
-      // Check if number is available
-      if (!this.availableNumbers.has(cleanNumber)) {
-        throw new Error('Phone number is not available or already assigned');
-      }
-
-      // Check if user already has a number
       if (user.virtualPhoneNumber) {
-        // Remove old number from assigned list
-        this.assignedNumbers.delete(userId);
-        this.availableNumbers.add(user.virtualPhoneNumber);
+        return {
+          success: true,
+          message: 'User already has a virtual number'
+        };
       }
-
-      // Assign new number
-      await user.update({ virtualPhoneNumber: cleanNumber });
-      this.assignedNumbers.set(userId, cleanNumber);
-      this.availableNumbers.delete(cleanNumber);
-
-      console.log(`Assigned ${cleanNumber} to user ${user.username}`);
+      
+      // Configure webhook for this number
+      await this.configureWebhook(phoneNumber);
+      
+      // Update user with virtual phone number
+      await user.update({ virtualPhoneNumber: phoneNumber });
+      
+      // Update internal state
+      this.assignedNumbers.set(phoneNumber, userId);
+      this.availableNumbers.delete(phoneNumber);
+      
+      console.log(`Assigned ${phoneNumber} to user ${user.username}`);
+      console.log(`Available numbers left: ${this.availableNumbers.size}`);
       
       return {
         success: true,
-        message: 'Twilio number assigned successfully',
-        number: cleanNumber
+        message: 'Number assigned successfully'
       };
     } catch (error) {
-      console.error('Error assigning Twilio number:', error);
+      console.error('Error assigning number:', error);
       return {
         success: false,
         error: error.message
       };
+    }
+  }
+
+  // Configure webhook for a phone number
+  async configureWebhook(phoneNumber) {
+    try {
+      const webhookUrl = `${process.env.BASE_URL}/api/webhooks/twilio/incoming`;
+      
+      await twilioService.client.incomingPhoneNumbers
+        .list({ phoneNumber: phoneNumber })
+        .then(numbers => {
+          if (numbers.length > 0) {
+            const numberSid = numbers[0].sid;
+            return twilioService.client.incomingPhoneNumbers(numberSid)
+              .update({
+                smsUrl: webhookUrl,
+                smsMethod: 'POST'
+              });
+          } else {
+            throw new Error(`Phone number ${phoneNumber} not found in Twilio account`);
+          }
+        });
+      
+      console.log(`Configured webhook for ${phoneNumber} to ${webhookUrl}`);
+    } catch (error) {
+      console.error('Error configuring webhook:', error);
+      throw error;
     }
   }
 
