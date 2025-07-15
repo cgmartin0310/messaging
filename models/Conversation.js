@@ -1,6 +1,8 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const User = require('./User');
+const Contact = require('./Contact'); // Added for Consent checks
+const Consent = require('./Consent'); // Added for Consent checks
 
 const Conversation = sequelize.define('Conversation', {
   id: {
@@ -35,6 +37,14 @@ const Conversation = sequelize.define('Conversation', {
   lastMessageAt: {
     type: DataTypes.DATE,
     allowNull: true
+  },
+  patientId: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    references: {
+      model: 'users',
+      key: 'id'
+    }
   },
   createdAt: {
     type: DataTypes.DATE,
@@ -210,7 +220,7 @@ Conversation.createSMSConversation = async function(userId, externalPhoneNumber,
   return conversation;
 };
 
-Conversation.createGroupConversation = async function(creatorId, name, description = null, participants = []) {
+Conversation.createGroupConversation = async function(creatorId, name, description = null, participants = [], patientId = null) {
   const virtualPhoneService = require('../services/virtualPhoneService');
   
   // Get creator
@@ -230,7 +240,8 @@ Conversation.createGroupConversation = async function(creatorId, name, descripti
     name: name,
     description: description,
     conversationType: 'group',
-    isActive: true
+    isActive: true,
+    patientId: patientId
   });
   
   // Add creator as admin
@@ -269,6 +280,32 @@ Conversation.createGroupConversation = async function(creatorId, name, descripti
 // Instance methods
 Conversation.prototype.addParticipant = async function(participantId, participantType = 'virtual', displayName = null) {
   const virtualPhoneService = require('../services/virtualPhoneService');
+  const Consent = require('./Consent');
+  
+  if (this.patientId) {
+    let hasConsent = false;
+    if (participantType === 'virtual' || participantType === 'user') {
+      // Check consent for internal user's contact (assuming user has associated contact)
+      const contact = await Contact.findOne({ where: { userId: participantId } });
+      if (contact) {
+        const consent = await Consent.findOne({
+          where: { contactId: contact.id, patientId: this.patientId, consentGiven: true }
+        });
+        hasConsent = !!consent;
+      }
+    } else if (participantType === 'sms') {
+      const contact = await Contact.findOne({ where: { phoneNumber: participantId } });
+      if (contact) {
+        const consent = await Consent.findOne({
+          where: { contactId: contact.id, patientId: this.patientId, consentGiven: true }
+        });
+        hasConsent = !!consent;
+      }
+    } // Add for group if needed
+    if (!hasConsent) {
+      throw new Error('No consent on file for this participant and patient');
+    }
+  }
   
   if (participantType === 'virtual') {
     // Add internal user

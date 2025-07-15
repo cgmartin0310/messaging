@@ -175,7 +175,7 @@ router.post('/sms', authenticateToken, async (req, res) => {
 // Create group conversation
 router.post('/group', authenticateToken, async (req, res) => {
   try {
-    const { name, description, participants } = req.body;
+    const { name, description, participants, patientId } = req.body;
     
     if (!name) {
       return res.status(400).json({ error: 'Group name is required' });
@@ -186,7 +186,8 @@ router.post('/group', authenticateToken, async (req, res) => {
       req.user.id,
       name,
       description,
-      participants || []
+      participants || [],
+      patientId
     );
     
     res.status(201).json({

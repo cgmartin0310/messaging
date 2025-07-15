@@ -15,17 +15,26 @@ class TwilioService {
     }
   }
 
-  // Send SMS message (for external SMS)
-  async sendSMS(to, message, metadata = {}) {
-    // If Twilio is not configured, return a mock success response
+  /**
+   * Send SMS message
+   * @param {string} to - Recipient phone number
+   * @param {string} message - Message body
+   * @param {Object} [options={}] - Optional parameters
+   * @param {string} [options.from] - Sender phone number (overrides messagingServiceSid)
+   * @param {Object} [options.metadata] - Additional Twilio metadata
+   * @returns {Promise<Object>} Send result
+   */
+  async sendSMS(to, message, options = {}) {
+    const { from, metadata = {} } = options;
+
     if (!this.client) {
       console.log(`Mock SMS sent to ${to}: ${message}`);
       return {
         success: true,
         messageId: 'mock-message-id',
         status: 'sent',
-        to: to,
-        from: 'mock-number',
+        to,
+        from: from || 'mock-number',
         body: message,
         errorCode: null,
         errorMessage: null
@@ -33,19 +42,18 @@ class TwilioService {
     }
 
     try {
-      // Use MessagingServiceSid if available (like your working curl command)
       const messageData = {
         body: message,
-        to: to,
+        to,
         statusCallback: `${process.env.BASE_URL || 'http://localhost:5000'}/api/webhooks/twilio/status`,
         ...metadata
       };
 
-      // If MessagingServiceSid is configured, use it (preferred)
-      if (process.env.TWILIO_MESSAGING_SERVICE_SID) {
+      if (from) {
+        messageData.from = from;
+      } else if (process.env.TWILIO_MESSAGING_SERVICE_SID) {
         messageData.messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
       } else {
-        // Fallback to using phone number directly
         messageData.from = this.phoneNumber;
       }
 
@@ -71,111 +79,15 @@ class TwilioService {
     }
   }
 
-  // Direct SMS sending (matches your working curl command)
-  async sendDirectSMS(to, message) {
-    if (!this.client) {
-      console.log(`Mock direct SMS sent to ${to}: ${message}`);
-      return {
-        success: true,
-        messageId: 'mock-message-id',
-        status: 'sent',
-        to: to,
-        body: message
-      };
-    }
-
-    try {
-      const messageData = {
-        body: message,
-        to: to
-      };
-
-      // Use MessagingServiceSid if available
-      if (process.env.TWILIO_MESSAGING_SERVICE_SID) {
-        messageData.messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
-      } else {
-        messageData.from = this.phoneNumber;
-      }
-
-      const result = await this.client.messages.create(messageData);
-      
-      return {
-        success: true,
-        messageId: result.sid,
-        status: result.status,
-        to: result.to,
-        from: result.from || result.messagingServiceSid,
-        body: result.body
-      };
-    } catch (error) {
-      console.error('Twilio direct SMS error:', error);
-      return {
-        success: false,
-        error: error.message,
-        code: error.code
-      };
-    }
-  }
-
-  // Direct SMS sending with specific "from" number (matches your curl format exactly)
-  async sendDirectSMSWithFrom(to, from, message) {
-    if (!this.client) {
-      console.log(`Mock direct SMS sent from ${from} to ${to}: ${message}`);
-      return {
-        success: true,
-        messageId: 'mock-message-id',
-        status: 'sent',
-        to: to,
-        from: from,
-        body: message
-      };
-    }
-
-    try {
-      const messageData = {
-        body: message,
-        to: to,
-        from: from  // Use the specific "from" number (virtual number)
-      };
-
-      console.log(`Sending SMS with format matching your curl command:`);
-      console.log(`  To: ${to}`);
-      console.log(`  From: ${from}`);
-      console.log(`  Body: ${message}`);
-
-      const result = await this.client.messages.create(messageData);
-      
-      return {
-        success: true,
-        messageId: result.sid,
-        status: result.status,
-        to: result.to,
-        from: result.from,
-        body: result.body
-      };
-    } catch (error) {
-      console.error('Twilio direct SMS error:', error);
-      return {
-        success: false,
-        error: error.message,
-        code: error.code
-      };
-    }
-  }
-
-  // Send bulk SMS to multiple recipients
-  async sendBulkSMS(recipients, message, metadata = {}) {
-    const results = [];
-    
-    for (const recipient of recipients) {
-      const result = await this.sendSMS(recipient, message, metadata);
-      results.push({
-        recipient,
-        ...result
-      });
-    }
-    
-    return results;
+  // Update sendBulkSMS to use sendSMS
+  async sendBulkSMS(recipients, message, options = {}) {
+    const results = await Promise.all(
+      recipients.map(recipient => this.sendSMS(recipient, message, options))
+    );
+    return results.map((result, index) => ({
+      recipient: recipients[index],
+      ...result
+    }));
   }
 
   // Verify phone number
