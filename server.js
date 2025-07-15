@@ -90,9 +90,13 @@ const connectDB = async () => {
     const connected = await testConnection();
     
     if (connected) {
-      console.log('Syncing database models...'); // Temporary: Enable in production to create tables
-      await sequelize.sync({ alter: true });
-      console.log('Database models synchronized');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Syncing database models (development only)...');
+        await sequelize.sync({ alter: true });
+        console.log('Database models synchronized');
+      } else {
+        console.log('Skipping schema sync in production');
+      }
       return true;
     } else {
       console.log('Database connection failed after all attempts');
