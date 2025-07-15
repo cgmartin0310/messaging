@@ -7,6 +7,8 @@ const { Message, MessageRead } = require('./Message');
 const { Conversation, ConversationParticipant } = require('./Conversation');
 const Patient = require('./Patient');
 const Document = require('./Document');
+const Consent = require('./Consent');
+const Group = require('./Group');
 
 // Set up Contact associations
 Contact.belongsTo(User, { 
@@ -65,6 +67,13 @@ Document.belongsTo(Patient, {
   foreignKey: 'patientId'
 });
 
+// Consent associations
+Consent.belongsTo(Contact, { foreignKey: 'contactId' });
+Consent.belongsTo(Patient, { foreignKey: 'patientId' });
+
+// Group associations
+Group.belongsToMany(Contact, { through: 'GroupContacts' });
+
 module.exports = {
   sequelize,
   User,
@@ -74,5 +83,7 @@ module.exports = {
   Conversation,
   ConversationParticipant,
   Patient,
-  Document
+  Document,
+  Consent,
+  Group
 }; 

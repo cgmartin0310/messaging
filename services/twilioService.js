@@ -24,7 +24,7 @@ class TwilioService {
    * @param {Object} [options.metadata] - Additional Twilio metadata
    * @returns {Promise<Object>} Send result
    */
-  async sendSMS(to, message, options = {}) {
+  async sendDirectSMSWithFrom(to, message, options = {}) {
     const { from, metadata = {} } = options;
 
     if (!this.client) {
@@ -82,7 +82,7 @@ class TwilioService {
   // Update sendBulkSMS to use sendSMS
   async sendBulkSMS(recipients, message, options = {}) {
     const results = await Promise.all(
-      recipients.map(recipient => this.sendSMS(recipient, message, options))
+      recipients.map(recipient => this.sendDirectSMSWithFrom(recipient, message, options))
     );
     return results.map((result, index) => ({
       recipient: recipients[index],

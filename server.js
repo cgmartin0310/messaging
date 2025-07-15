@@ -91,8 +91,14 @@ const connectDB = async () => {
     
     if (connected) {
       console.log('Syncing database models...');
-      await sequelize.sync({ alter: true });
-      console.log('Database models synchronized');
+      try {
+        await sequelize.sync({ alter: true });
+        console.log('Database models synchronized successfully');
+      } catch (syncError) {
+        console.error('Error during database sync:', syncError);
+        return false;
+      }
+      return true;
     } else {
       console.log('Database connection failed after all attempts');
       return false;
@@ -111,6 +117,8 @@ const connectDB = async () => {
       console.log('Database does not exist: Check if the database name in DATABASE_URL is correct.');
     } else if (error.code === '28P01') {
       console.log('Authentication failed: Check username and password in DATABASE_URL.');
+    } else if (error.original?.code === '42P01') {
+      console.log('Table does not exist: The sync may have failed. Check model definitions.');
     }
     
     console.log('Server will start without database connection. Some features may not work.');
