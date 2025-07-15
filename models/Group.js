@@ -19,7 +19,7 @@ const Group = sequelize.define('Group', {
   },
   userId: {
     type: DataTypes.UUID,
-    allowNull: false,
+    allowNull: true, // Temporary: Allow null for deployment; enforce NOT NULL after migrating data
     references: {
       model: 'users',
       key: 'id'

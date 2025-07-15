@@ -90,10 +90,13 @@ const connectDB = async () => {
     const connected = await testConnection();
     
     if (connected) {
-      // Sync all models with database
-      console.log('Syncing database models...');
-      await sequelize.sync({ alter: true });
-      console.log('Database models synchronized');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Syncing database models (development only)...');
+        await sequelize.sync({ alter: true });
+        console.log('Database models synchronized');
+      } else {
+        console.log('Skipping schema sync in production');
+      }
       return true;
     } else {
       console.log('Database connection failed after all attempts');
@@ -116,7 +119,7 @@ const connectDB = async () => {
     }
     
     console.log('Server will start without database connection. Some features may not work.');
-    console.log('To fix this, please check your database connection string.');
+    console.log('To fix this, start PostgreSQL or check your Render PostgreSQL instance');
     return false;
   }
 };
@@ -179,7 +182,7 @@ const startServer = async () => {
       if (!dbConnected) {
         console.log('⚠️  WARNING: Server is running without database connection');
         console.log('   Some features like user authentication and message storage will not work');
-        console.log('   To fix this, start MongoDB or use a cloud MongoDB instance');
+        console.log('   To fix this, start PostgreSQL or check your Render PostgreSQL instance');
       }
     });
   } catch (error) {
