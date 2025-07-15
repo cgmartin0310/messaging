@@ -220,14 +220,27 @@ class TwilioService {
     }
 
     const twilioSignature = req.headers['x-twilio-signature'];
-    const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
     
-    return twilio.validateRequest(
+    // In production (Render), we're behind a proxy so we need to use the forwarded protocol
+    const protocol = req.get('x-forwarded-proto') || req.protocol;
+    const host = req.get('host');
+    const url = `${protocol}://${host}${req.originalUrl}`;
+    
+    console.log('Webhook verification - URL:', url);
+    console.log('Webhook verification - Signature:', twilioSignature);
+    
+    const isValid = twilio.validateRequest(
       process.env.TWILIO_AUTH_TOKEN,
       twilioSignature,
       url,
       req.body
     );
+    
+    if (!isValid) {
+      console.error('Webhook signature verification failed');
+    }
+    
+    return isValid;
   }
 
   // Generate encryption key for message encryption

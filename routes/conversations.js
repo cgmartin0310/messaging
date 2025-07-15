@@ -490,4 +490,40 @@ router.delete('/:conversationId', authenticateToken, async (req, res) => {
   }
 });
 
+// Debug endpoint to check conversations (remove in production)
+router.get('/debug/all', authenticateToken, async (req, res) => {
+  try {
+    const conversations = await Conversation.findAll({
+      include: [{
+        model: ConversationParticipant,
+        as: 'participants',
+        attributes: ['id', 'participantType', 'identity', 'phoneNumber', 'displayName', 'role', 'isActive']
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+    
+    res.json({
+      count: conversations.length,
+      conversations: conversations.map(conv => ({
+        id: conv.id,
+        name: conv.name,
+        type: conv.conversationType,
+        isActive: conv.isActive,
+        participants: conv.participants.map(p => ({
+          id: p.id,
+          type: p.participantType,
+          identity: p.identity,
+          phoneNumber: p.phoneNumber,
+          displayName: p.displayName,
+          role: p.role,
+          isActive: p.isActive
+        }))
+      }))
+    });
+  } catch (error) {
+    console.error('Debug error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router; 

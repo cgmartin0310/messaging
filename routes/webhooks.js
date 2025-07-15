@@ -10,17 +10,28 @@ router.post('/twilio/incoming', async (req, res) => {
   try {
     const { From, To, Body, MessageSid } = req.body;
     
-    console.log(`Incoming SMS from ${From} to ${To}: ${Body}`);
+    console.log('=== INCOMING SMS WEBHOOK ===');
+    console.log(`From: ${From}`);
+    console.log(`To: ${To}`);
+    console.log(`Body: ${Body}`);
+    console.log(`MessageSid: ${MessageSid}`);
+    console.log('Full request body:', JSON.stringify(req.body, null, 2));
     
     // Verify webhook signature
     if (!twilioService.verifyWebhookSignature(req)) {
-      console.error('Invalid webhook signature');
+      console.error('Invalid webhook signature - rejecting request');
       return res.status(403).send('Forbidden');
     }
+    
+    console.log('Webhook signature verified successfully');
     
     // Find conversation that includes the From phone number
     const { Conversation, ConversationParticipant, Message } = require('../models');
     const { Op } = require('sequelize');
+    
+    // Normalize phone numbers (remove + if present for consistent lookup)
+    const normalizedFrom = From.replace(/^\+/, '');
+    console.log(`Looking for conversation with participant phone number: ${From} (normalized: ${normalizedFrom})`);
     
     // Look for a conversation where the From number is a participant
     const conversation = await Conversation.findOne({
@@ -29,7 +40,11 @@ router.post('/twilio/incoming', async (req, res) => {
           model: ConversationParticipant,
           as: 'participants',
           where: { 
-            phoneNumber: From,
+            [Op.or]: [
+              { phoneNumber: From },
+              { phoneNumber: normalizedFrom },
+              { phoneNumber: `+${normalizedFrom}` }
+            ],
             participantType: 'sms',
             isActive: true
           },
@@ -58,21 +73,44 @@ router.post('/twilio/incoming', async (req, res) => {
       // Update conversation last message time
       await conversation.update({ lastMessageAt: new Date() });
       
-      console.log(`Message saved to conversation: ${message.id}`);
+      console.log(`Message saved successfully with ID: ${message.id}`);
+      console.log('Message details:', {
+        id: message.id,
+        conversationId: message.conversationId,
+        senderPhone: message.senderPhone,
+        content: message.content
+      });
       
-      // Notify web app users in the conversation
-      // This would be where you'd emit a Socket.IO event if implemented
+      // TODO: Emit Socket.IO event here to notify web clients
+      // io.to(`conversation:${conversation.id}`).emit('new_message', message.getMessageInfo());
       
     } else {
       console.log(`No conversation found for phone number: ${From}`);
+      console.log('This might be a new conversation or the participant is not properly set up');
       
-      // Optionally create a new conversation for this number
-      // For now, just log it
+      // Let's check if there are any conversations at all
+      const allConversations = await Conversation.findAll({
+        include: [{
+          model: ConversationParticipant,
+          as: 'participants'
+        }]
+      });
+      
+      console.log(`Total conversations in database: ${allConversations.length}`);
+      allConversations.forEach(conv => {
+        console.log(`Conversation ${conv.id}: ${conv.name}`);
+        conv.participants.forEach(p => {
+          console.log(`  - Participant: ${p.displayName || p.phoneNumber} (${p.participantType})`);
+        });
+      });
     }
     
+    console.log('=== WEBHOOK PROCESSING COMPLETE ===');
     res.status(200).send('OK');
   } catch (error) {
+    console.error('=== WEBHOOK ERROR ===');
     console.error('Error handling incoming SMS:', error);
+    console.error('Stack trace:', error.stack);
     res.status(500).send('Internal Server Error');
   }
 });
