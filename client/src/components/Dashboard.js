@@ -15,7 +15,8 @@ import {
   Message,
   Dashboard as DashboardIcon,
   Group,
-  PersonAdd
+  PersonAdd,
+  BugReport
 } from '@mui/icons-material';
 import { 
   AppBar, 
@@ -86,6 +87,19 @@ const Dashboard = () => {
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
+  };
+
+  // Debug function
+  const debugConversations = async () => {
+    try {
+      const response = await axios.get('/api/conversations/debug/all');
+      console.log('=== DEBUG: ALL CONVERSATIONS ===');
+      console.log(response.data);
+      toast.success('Check browser console for debug info');
+    } catch (error) {
+      console.error('Debug error:', error);
+      toast.error('Debug failed - check console');
+    }
   };
 
   if (loading) {
@@ -239,6 +253,17 @@ const Dashboard = () => {
                   sx={{ py: 2 }}
                 >
                   Manage Patients & Compliance
+                </Button>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  startIcon={<BugReport />}
+                  onClick={debugConversations}
+                  sx={{ py: 2 }}
+                >
+                  Debug Conversations
                 </Button>
               </Grid>
             </Grid>
