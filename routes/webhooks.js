@@ -18,175 +18,56 @@ router.post('/twilio/incoming', async (req, res) => {
       return res.status(403).send('Forbidden');
     }
     
-    // Check if this is a message to a virtual phone number
-    const recipientUser = await virtualPhoneService.getUserByVirtualNumber(To);
+    // Find conversation that includes the From phone number
+    const { Conversation, ConversationParticipant, Message } = require('../models');
+    const { Op } = require('sequelize');
     
-    if (recipientUser) {
-      // This is a message to an internal user's virtual number
-      console.log(`Processing SMS to internal user ${recipientUser.username} (${To})`);
-      
-      // Find the conversation that includes this virtual number
-      const { Conversation, ConversationParticipant } = require('../models');
-      
-      const conversation = await Conversation.findOne({
-        include: [
-          {
-            model: ConversationParticipant,
-            as: 'participants',
-            where: { 
-              phoneNumber: To,
-              isActive: true
-            }
-          }
-        ],
-        where: { 
-          isActive: true
+    // Look for a conversation where the From number is a participant
+    const conversation = await Conversation.findOne({
+      include: [
+        {
+          model: ConversationParticipant,
+          as: 'participants',
+          where: { 
+            phoneNumber: From,
+            participantType: 'sms',
+            isActive: true
+          },
+          required: true
         }
+      ],
+      where: { 
+        isActive: true
+      }
+    });
+    
+    if (conversation) {
+      console.log(`Found conversation: ${conversation.id} (${conversation.name})`);
+      
+      // Save message to database with no senderId (external sender)
+      const message = await Message.create({
+        content: Body,
+        messageType: 'text',
+        senderId: null, // External sender
+        conversationId: conversation.id,
+        twilioMessageId: MessageSid,
+        twilioStatus: 'received',
+        senderPhone: From // Store the phone number
       });
       
-      if (conversation) {
-        console.log(`Found conversation: ${conversation.id} (${conversation.name})`);
-        
-        // Check if sender is another internal user
-        const senderUser = await User.findOne({
-          where: { virtualPhoneNumber: From }
-        });
-        
-        let senderId = null;
-        let senderName = From;
-        
-        if (senderUser) {
-          senderId = senderUser.id;
-          senderName = `${senderUser.firstName} ${senderUser.lastName}`;
-          console.log(`Sender is internal user: ${senderName}`);
-        } else {
-          console.log(`Sender is external: ${From}`);
-        }
-        
-        // Save message to database
-        const { Message } = require('../models');
-        const message = await Message.create({
-          content: Body,
-          messageType: 'text',
-          senderId: senderId,
-          conversationId: conversation.id,
-          twilioMessageId: MessageSid,
-          twilioStatus: 'received'
-        });
-        
-        // Update conversation last message time
-        await conversation.update({ lastMessageAt: new Date() });
-        
-        console.log(`Message saved to conversation: ${message.id}`);
-        
-        // Send SMS to other participants in the conversation
-        const participants = await ConversationParticipant.findAll({
-          where: { 
-            ConversationId: conversation.id,
-            isActive: true,
-            phoneNumber: { [require('sequelize').Op.ne]: To } // Exclude recipient
-          }
-        });
-        
-        console.log(`Sending to ${participants.length} other participants`);
-        
-        for (const participant of participants) {
-          if (participant.participantType === 'virtual') {
-            // Send to internal user
-            const targetUser = await User.findByPk(participant.identity);
-            if (targetUser && targetUser.virtualPhoneNumber) {
-              await virtualPhoneService.sendInternalSMS(
-                recipientUser.id,
-                targetUser.id,
-                `[${senderName}]: ${Body}`
-              );
-            }
-          } else if (participant.participantType === 'sms') {
-            // Send to external SMS participant
-            await virtualPhoneService.sendExternalSMS(
-              recipientUser.id,
-              participant.phoneNumber,
-              `[${senderName}]: ${Body}`
-            );
-          }
-        }
-        
-      } else {
-        console.log(`No active conversation found for virtual number: ${To}`);
-      }
+      // Update conversation last message time
+      await conversation.update({ lastMessageAt: new Date() });
+      
+      console.log(`Message saved to conversation: ${message.id}`);
+      
+      // Notify web app users in the conversation
+      // This would be where you'd emit a Socket.IO event if implemented
       
     } else {
-      // This is a regular SMS (not to a virtual number)
-      console.log('Regular SMS received (not to virtual number):', { From, To, Body });
+      console.log(`No conversation found for phone number: ${From}`);
       
-      // Find conversation by external phone number
-      const { Conversation, ConversationParticipant } = require('../models');
-      
-      const conversation = await Conversation.findOne({
-        include: [
-          {
-            model: ConversationParticipant,
-            as: 'participants',
-            where: { 
-              phoneNumber: To,
-              participantType: 'sms',
-              isActive: true
-            }
-          }
-        ],
-        where: { 
-          conversationType: 'sms',
-          isActive: true
-        }
-      });
-      
-      if (conversation) {
-        console.log(`Found SMS conversation: ${conversation.id} (${conversation.name})`);
-        
-        // Save message to database
-        const { Message } = require('../models');
-        const message = await Message.create({
-          content: Body,
-          messageType: 'text',
-          senderId: null, // External sender
-          conversationId: conversation.id,
-          twilioMessageId: MessageSid,
-          twilioStatus: 'received'
-        });
-        
-        // Update conversation last message time
-        await conversation.update({ lastMessageAt: new Date() });
-        
-        console.log(`Message saved to SMS conversation: ${message.id}`);
-        
-        // Send to other participants in the conversation
-        const participants = await ConversationParticipant.findAll({
-          where: { 
-            ConversationId: conversation.id,
-            isActive: true,
-            phoneNumber: { [require('sequelize').Op.ne]: To } // Exclude recipient
-          }
-        });
-        
-        console.log(`Sending to ${participants.length} other participants`);
-        
-        for (const participant of participants) {
-          if (participant.participantType === 'virtual') {
-            // Send to internal user
-            const targetUser = await User.findByPk(participant.identity);
-            if (targetUser && targetUser.virtualPhoneNumber) {
-              await virtualPhoneService.sendExternalSMS(
-                targetUser.id,
-                From,
-                `[${From}]: ${Body}`
-              );
-            }
-          }
-        }
-        
-      } else {
-        console.log(`No SMS conversation found for number: ${To}`);
-      }
+      // Optionally create a new conversation for this number
+      // For now, just log it
     }
     
     res.status(200).send('OK');

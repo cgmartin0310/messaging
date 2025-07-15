@@ -451,4 +451,43 @@ router.post('/:conversationId/messages', authenticateToken, async (req, res) => 
   }
 });
 
+// Delete conversation
+router.delete('/:conversationId', authenticateToken, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    
+    const conversation = await Conversation.findByPk(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+    
+    // Check if user is participant with admin role
+    const userParticipant = await ConversationParticipant.findOne({
+      where: {
+        ConversationId: conversationId,
+        identity: req.user.id,
+        isActive: true
+      }
+    });
+    
+    if (!userParticipant) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // Soft delete the conversation
+    await conversation.update({ isActive: false });
+    
+    // Soft delete all participants
+    await ConversationParticipant.update(
+      { isActive: false },
+      { where: { ConversationId: conversationId } }
+    );
+    
+    res.json({ message: 'Conversation deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting conversation:', error);
+    res.status(500).json({ error: 'Failed to delete conversation' });
+  }
+});
+
 module.exports = router; 

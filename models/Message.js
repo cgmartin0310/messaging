@@ -64,6 +64,11 @@ const Message = sequelize.define('Message', {
       key: 'id'
     }
   },
+  senderPhone: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
+    comment: 'Phone number for external SMS senders'
+  },
   twilioStatus: {
     type: DataTypes.ENUM('pending', 'sent', 'delivered', 'failed', 'received'),
     defaultValue: 'pending'
@@ -185,6 +190,14 @@ Message.prototype.getMessageInfo = function() {
       firstName: this.sender.firstName,
       lastName: this.sender.lastName,
       avatar: this.sender.avatar
+    } : this.senderPhone ? {
+      id: null,
+      username: this.senderPhone,
+      firstName: 'SMS',
+      lastName: this.senderPhone,
+      avatar: null,
+      isExternal: true,
+      phoneNumber: this.senderPhone
     } : null,
     replyTo: this.replyTo ? {
       id: this.replyTo.id,
