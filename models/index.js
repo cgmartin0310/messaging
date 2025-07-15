@@ -71,8 +71,8 @@ Document.belongsTo(Patient, {
 Consent.belongsTo(Contact, { foreignKey: 'contactId' });
 Consent.belongsTo(Patient, { foreignKey: 'patientId' });
 
-// Group associations
-Group.belongsToMany(Contact, { through: 'GroupContacts' });
+// Remove problematic Group association
+// Group.belongsToMany(Contact, { through: 'GroupContacts' });
 
 module.exports = {
   sequelize,
