@@ -92,7 +92,7 @@ const connectDB = async () => {
     if (connected) {
       console.log('Syncing database models...');
       try {
-        await sequelize.sync({ alter: true });
+        await sequelize.sync({ force: true }); // Temporary force to recreate
         console.log('Database models synchronized successfully');
       } catch (syncError) {
         console.error('Error during database sync:', syncError);

@@ -12,7 +12,7 @@ const Document = sequelize.define('Document', {
     type: DataTypes.UUID,
     allowNull: false,
     references: {
-      model: 'patients',
+      model: Patient,
       key: 'id'
     }
   },
