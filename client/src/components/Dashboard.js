@@ -233,19 +233,6 @@ const Dashboard = () => {
                 <Button
                   component={Link}
                   to="/patients"
-                  variant="contained"
-                  color="primary"
-                  fullWidth
-                  startIcon={<PersonAdd />}
-                  sx={{ py: 2, mb: 2 }}
-                >
-                  Manage Patients
-                </Button>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Button
-                  component={Link}
-                  to="/patients"
                   variant="outlined"
                   fullWidth
                   startIcon={<People />}

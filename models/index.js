@@ -5,6 +5,8 @@ const User = require('./User');
 const Contact = require('./Contact');
 const { Message, MessageRead } = require('./Message');
 const { Conversation, ConversationParticipant } = require('./Conversation');
+const Patient = require('./Patient');
+const Document = require('./Document');
 
 // Set up Contact associations
 Contact.belongsTo(User, { 
@@ -54,6 +56,15 @@ Conversation.hasMany(Message, {
   foreignKey: 'conversationId' 
 });
 
+// Patient associations
+Patient.hasMany(Document, {
+  foreignKey: 'patientId',
+  as: 'documents'
+});
+Document.belongsTo(Patient, {
+  foreignKey: 'patientId'
+});
+
 module.exports = {
   sequelize,
   User,
@@ -61,5 +72,7 @@ module.exports = {
   Message,
   MessageRead,
   Conversation,
-  ConversationParticipant
+  ConversationParticipant,
+  Patient,
+  Document
 }; 
