@@ -14,7 +14,8 @@ import {
   Chat,
   Message,
   Dashboard as DashboardIcon,
-  Group
+  Group,
+  PersonAdd
 } from '@mui/icons-material';
 import { 
   AppBar, 
@@ -226,6 +227,19 @@ const Dashboard = () => {
                   sx={{ py: 2 }}
                 >
                   Manage Groups
+                </Button>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Button
+                  component={Link}
+                  to="/patients"
+                  variant="contained"
+                  color="primary"
+                  fullWidth
+                  startIcon={<PersonAdd />}
+                  sx={{ py: 2, mb: 2 }}
+                >
+                  Manage Patients
                 </Button>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
