@@ -5,6 +5,16 @@ const { User } = require('../models');
 
 const router = express.Router();
 
+// Test webhook endpoint
+router.get('/test', (req, res) => {
+  console.log('Webhook test endpoint hit');
+  res.json({ 
+    status: 'ok', 
+    message: 'Webhook endpoint is accessible',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Handle incoming SMS webhook
 router.post('/twilio/incoming', async (req, res) => {
   try {
