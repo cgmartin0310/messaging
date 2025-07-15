@@ -10,6 +10,7 @@ import Dashboard from './components/Dashboard';
 import Chat from './components/chat/Chat';
 import Profile from './components/profile/Profile';
 import GroupManager from './components/groups/GroupManager';
+import PatientManager from './components/patients/PatientManager';
 
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import LoadingSpinner from './components/common/LoadingSpinner';
@@ -73,6 +74,12 @@ function AppContent() {
         <Route path="/groups" element={
           <ProtectedRoute>
             <GroupManager />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/patients" element={
+          <ProtectedRoute>
+            <PatientManager />
           </ProtectedRoute>
         } />
         

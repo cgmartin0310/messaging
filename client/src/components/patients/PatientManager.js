@@ -1,0 +1,1 @@
+// Full component code here - similar to GroupManager, with forms for demographics and document types from the list. 

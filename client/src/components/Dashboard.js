@@ -228,6 +228,18 @@ const Dashboard = () => {
                   Manage Groups
                 </Button>
               </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Button
+                  component={Link}
+                  to="/patients"
+                  variant="outlined"
+                  fullWidth
+                  startIcon={<People />}
+                  sx={{ py: 2 }}
+                >
+                  Manage Patients & Compliance
+                </Button>
+              </Grid>
             </Grid>
           </CardContent>
         </Card>

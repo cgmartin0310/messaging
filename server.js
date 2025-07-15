@@ -134,6 +134,8 @@ app.use('/api/webhooks', webhookRoutes);
 app.use('/api/twilio-numbers', twilioNumberRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/consents', consentRoutes);
+app.use('/api/patients', require('./routes/patients'));
+app.use('/api/patients/:patientId/documents', require('./routes/documents'));
 
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
