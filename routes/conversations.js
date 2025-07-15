@@ -3,6 +3,7 @@ const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const { Conversation, ConversationParticipant, User } = require('../models');
 const virtualPhoneService = require('../services/virtualPhoneService');
+const Sequelize = require('sequelize');
 
 // Get all conversations for current user
 router.get('/', authenticateToken, async (req, res) => {
@@ -522,6 +523,39 @@ router.get('/debug/all', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Debug error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Temporary endpoint to fix phone numbers (remove in production)
+router.post('/debug/fix-phone-numbers', authenticateToken, async (req, res) => {
+  try {
+    const participants = await ConversationParticipant.findAll({
+      where: {
+        phoneNumber: {
+          [Sequelize.Op.not]: null
+        }
+      }
+    });
+    
+    let updated = 0;
+    for (const participant of participants) {
+      if (!participant.phoneNumber.startsWith('+')) {
+        const oldNumber = participant.phoneNumber;
+        const newNumber = `+${participant.phoneNumber}`;
+        
+        await participant.update({ phoneNumber: newNumber });
+        updated++;
+      }
+    }
+    
+    res.json({
+      message: 'Phone numbers fixed',
+      totalParticipants: participants.length,
+      updated: updated
+    });
+  } catch (error) {
+    console.error('Fix phone numbers error:', error);
     res.status(500).json({ error: error.message });
   }
 });

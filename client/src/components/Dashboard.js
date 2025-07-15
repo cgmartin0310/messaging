@@ -126,6 +126,18 @@ const Dashboard = () => {
     }
   };
 
+  // Fix phone numbers function
+  const fixPhoneNumbers = async () => {
+    try {
+      const response = await axios.post('/api/conversations/debug/fix-phone-numbers');
+      console.log('Phone numbers fixed:', response.data);
+      toast.success(`Fixed ${response.data.updated} phone numbers`);
+    } catch (error) {
+      console.error('Fix error:', error);
+      toast.error('Failed to fix phone numbers');
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -279,17 +291,28 @@ const Dashboard = () => {
                   Manage Patients & Compliance
                 </Button>
               </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<BugReport />}
-                  onClick={debugConversations}
-                  sx={{ py: 2 }}
-                >
-                  Debug Conversations
-                </Button>
-              </Grid>
+                              <Grid item xs={12} sm={6} md={3}>
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    startIcon={<BugReport />}
+                    onClick={debugConversations}
+                    sx={{ py: 2 }}
+                  >
+                    Debug Conversations
+                  </Button>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    color="warning"
+                    onClick={fixPhoneNumbers}
+                    sx={{ py: 2 }}
+                  >
+                    Fix Phone Numbers
+                  </Button>
+                </Grid>
             </Grid>
           </CardContent>
         </Card>
