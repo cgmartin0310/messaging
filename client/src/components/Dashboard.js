@@ -93,8 +93,32 @@ const Dashboard = () => {
   const debugConversations = async () => {
     try {
       const response = await axios.get('/api/conversations/debug/all');
+      const data = response.data;
+      
       console.log('=== DEBUG: ALL CONVERSATIONS ===');
-      console.log(response.data);
+      console.log(`Total conversations: ${data.count}`);
+      
+      data.conversations.forEach((conv, index) => {
+        console.log(`\n--- Conversation ${index + 1} ---`);
+        console.log(`ID: ${conv.id}`);
+        console.log(`Name: ${conv.name}`);
+        console.log(`Type: ${conv.type}`);
+        console.log(`Active: ${conv.isActive}`);
+        console.log(`Participants (${conv.participants.length}):`);
+        
+        conv.participants.forEach((p, pIndex) => {
+          console.log(`  ${pIndex + 1}. ${p.displayName || 'No name'}`);
+          console.log(`     - Type: ${p.type}`);
+          console.log(`     - Phone: ${p.phoneNumber || 'No phone'}`);
+          console.log(`     - Identity: ${p.identity || 'No identity'}`);
+          console.log(`     - Active: ${p.isActive}`);
+        });
+      });
+      
+      // Also show the raw data
+      console.log('\n--- RAW DATA ---');
+      console.log(JSON.stringify(data, null, 2));
+      
       toast.success('Check browser console for debug info');
     } catch (error) {
       console.error('Debug error:', error);
