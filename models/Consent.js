@@ -1,7 +1,7 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const Contact = require('./Contact');
-const User = require('./User'); // Assuming Patient is a User
+const Patient = require('./Patient');
 
 const Consent = sequelize.define('Consent', {
   id: {
@@ -26,7 +26,7 @@ const Consent = sequelize.define('Consent', {
     type: DataTypes.UUID,
     allowNull: false,
     references: {
-      model: 'users',
+      model: 'patients',
       key: 'id'
     }
   },
@@ -57,6 +57,6 @@ const Consent = sequelize.define('Consent', {
 
 // Associations
 Consent.belongsTo(Contact, { foreignKey: 'contactId' });
-Consent.belongsTo(User, { as: 'Patient', foreignKey: 'patientId' });
+Consent.belongsTo(Patient, { foreignKey: 'patientId' });
 
 module.exports = Consent; 

@@ -410,4 +410,103 @@ router.post('/refresh', async (req, res) => {
   }
 });
 
+// Test database connection
+router.get('/debug/test', async (req, res) => {
+  try {
+    // Test database connection
+    const isConnected = await isDatabaseConnected();
+    
+    if (!isConnected) {
+      return res.status(503).json({
+        error: 'Database unavailable',
+        message: 'Database is not connected'
+      });
+    }
+
+    // Test basic query
+    const userCount = await User.count();
+    
+    res.json({
+      message: 'Database test successful',
+      connected: true,
+      userCount: userCount,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Database test error:', error);
+    res.status(500).json({
+      error: 'Database test failed',
+      message: error.message,
+      connected: false
+    });
+  }
+});
+
+// Debug endpoint to check users (remove in production)
+router.get('/debug/users', async (req, res) => {
+  try {
+    // Check if database is connected
+    if (!(await isDatabaseConnected())) {
+      return res.status(503).json({
+        error: 'Database unavailable',
+        message: 'Database is not connected'
+      });
+    }
+
+    const users = await User.findAll({
+      attributes: ['id', 'username', 'email', 'firstName', 'lastName', 'isActive', 'createdAt']
+    });
+
+    res.json({
+      message: 'Users found',
+      count: users.length,
+      users: users.map(user => user.toJSON())
+    });
+  } catch (error) {
+    console.error('Debug users error:', error);
+    res.status(500).json({
+      error: 'Debug failed',
+      message: error.message
+    });
+  }
+});
+
+// Test registration endpoint (remove in production)
+router.post('/debug/register-test', async (req, res) => {
+  try {
+    // Check if database is connected
+    if (!(await isDatabaseConnected())) {
+      return res.status(503).json({
+        error: 'Database unavailable',
+        message: 'Database is not connected'
+      });
+    }
+
+    // Create a test user
+    const testUser = await User.create({
+      username: 'testuser',
+      email: 'test@example.com',
+      password: 'TestPassword123',
+      phoneNumber: '+1234567890',
+      firstName: 'Test',
+      lastName: 'User'
+    });
+
+    // Generate token
+    const token = generateToken(testUser.id);
+
+    res.status(201).json({
+      message: 'Test user created successfully',
+      token,
+      user: testUser.getProfile()
+    });
+  } catch (error) {
+    console.error('Test registration error:', error);
+    res.status(500).json({
+      error: 'Test registration failed',
+      message: error.message
+    });
+  }
+});
+
 module.exports = router; 

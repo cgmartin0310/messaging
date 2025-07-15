@@ -12,7 +12,7 @@ const Document = sequelize.define('Document', {
     type: DataTypes.UUID,
     allowNull: false,
     references: {
-      model: Patient,
+      model: 'patients',
       key: 'id'
     }
   },
@@ -36,6 +36,8 @@ const Document = sequelize.define('Document', {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
   }
+}, {
+  tableName: 'documents'
 });
 
 Document.belongsTo(Patient, { foreignKey: 'patientId' });

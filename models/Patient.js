@@ -48,6 +48,8 @@ const Patient = sequelize.define('Patient', {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
   }
+}, {
+  tableName: 'patients'
 });
 
 Patient.belongsTo(User, { foreignKey: 'userId' });
